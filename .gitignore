@@ -1,0 +1,6 @@
+out
+dist
+test-pjkt
+node_modules
+.vscode-test/
+*.vsix
