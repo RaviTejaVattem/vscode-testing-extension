@@ -9,18 +9,9 @@ export function findKarmaTestsAndSuites(fileContent: string) {
 		true
 	);
 
-	const root: IParsedNode = {
-		fn: 'describe',
-		name: 'root',
-		location: {
-			source: 'filePath',
-			start: { line: 0, character: 0 },
-			end: { line: 0, character: 0 }
-		},
-		children: []
-	};
+	let root: IParsedNode = {} as IParsedNode;
 
-	function visit(node: ts.Node, parent: IParsedNode) {
+	function visit(node: ts.Node, parent: IParsedNode | null) {
 		if (ts.isCallExpression(node)) {
 			const { expression, arguments: args } = node;
 			if (
@@ -49,7 +40,11 @@ export function findKarmaTestsAndSuites(fileContent: string) {
 					},
 					children: []
 				};
-				parent.children.push(newNode);
+				if (parent) {
+					parent.children.push(newNode);
+				} else {
+					root = { ...newNode };
+				}
 				if (expression.text === 'describe') {
 					ts.forEachChild(node, (child) => visit(child, newNode));
 				}
@@ -59,7 +54,7 @@ export function findKarmaTestsAndSuites(fileContent: string) {
 		}
 	}
 
-	visit(sourceFile, root);
+	visit(sourceFile, null);
 
 	return root;
 }

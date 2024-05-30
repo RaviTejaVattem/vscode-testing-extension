@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 import { IParsedNode } from './types';
+import { IstanbulCoverageContext } from 'istanbul-to-vscode';
+import path from 'path';
 
 export function loadFakeTests(controller: vscode.TestController) {
 	// const nestedSuite = controller.createTestItem(
@@ -23,11 +25,17 @@ export function loadFakeTests(controller: vscode.TestController) {
 
 export async function runFakeTests(
 	controller: vscode.TestController,
-	request: vscode.TestRunRequest
+	request: vscode.TestRunRequest,
+	context?: IstanbulCoverageContext
 ): Promise<void> {
 	const run = controller.createTestRun(request);
-	console.log('<--------> ~ request:', request);
-
+	let wsFolders = vscode.workspace?.workspaceFolders;
+	if (context) {
+		if (wsFolders && wsFolders.length > 0) {
+			const dirPath = path.join(wsFolders[0].uri.fsPath, '/coverage/qnb');
+			await context.apply(run, dirPath);
+		}
+	}
 	if (request.include) {
 		await Promise.all(request.include.map((t) => runNode(t, request, run)));
 	} else {

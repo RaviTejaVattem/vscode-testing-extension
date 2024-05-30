@@ -6,12 +6,13 @@ import { IstanbulCoverageContext } from 'istanbul-to-vscode';
 import { loadFakeTests, runFakeTests } from './fakeTests';
 import { request } from 'http';
 import { findKarmaTestsAndSuites } from './parser';
-import { addTests } from './helpers';
+import { addTests, spawnAProcess } from './helpers';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
+export const coverageContext = new IstanbulCoverageContext();
+
 export function activate(context: vscode.ExtensionContext) {
-	const coverageContext = new IstanbulCoverageContext();
 	enum ItemType {
 		File,
 		TestCase
@@ -35,6 +36,16 @@ export function activate(context: vscode.ExtensionContext) {
 		'Hello World Tests'
 	);
 
+	// let nodeServer = spawnAProcess();
+
+	// context.subscriptions.push({
+	// 	dispose: () => {
+	// 		if (nodeServer) {
+	// 			nodeServer.kill();
+	// 		}
+	// 	}
+	// });
+
 	const runProfile = controller.createRunProfile(
 		'Run',
 		vscode.TestRunProfileKind.Run,
@@ -44,27 +55,27 @@ export function activate(context: vscode.ExtensionContext) {
 	const coverageProfile = controller.createRunProfile(
 		'Coverage',
 		vscode.TestRunProfileKind.Coverage,
-		(request, token) => runHandler(true, request, token),
-		true
+		(request, token) => runFakeTests(controller, request, coverageContext),
+		false
 	);
 
-	coverageProfile.loadDetailedCoverage = (testRun, fileCoverage, token) => {
-		return new Promise(() => readCoverageOutput());
-	};
+	coverageProfile.loadDetailedCoverage = coverageContext.loadDetailedCoverage;
 
 	controller.resolveHandler = async (test) => {
 		controller.items.replace(loadFakeTests(controller));
+		await findSpecFiles();
+		await discoverAllFilesInWorkspace();
 	};
 
 	let testItems: vscode.TestItem[] = [];
 
 	// When text documents are open, parse tests in them.
 	vscode.workspace.onDidOpenTextDocument((event) => {
-		console.log('Document opened', event);
-		const tests = findKarmaTestsAndSuites(event.getText());
-		const items = addTests(controller, tests);
-		controller.items.replace([items]); // Pass an array of TestItem objects
-		testItems.push(getOrCreateFile(event.uri));
+		// spawnAProcess();
+		// const tests = findKarmaTestsAndSuites(event.getText());
+		// const items = addTests(controller, tests);
+		// controller.items.replace([items]); // Pass an array of TestItem objects
+		// testItems.push(getOrCreateFile(event.uri));
 	});
 	// We could also listen to document changes to re-parse unsaved changes:
 	vscode.workspace.onDidChangeTextDocument((e) =>
@@ -93,6 +104,21 @@ export function activate(context: vscode.ExtensionContext) {
 		// if (e.uri.scheme === 'file' && e.uri.path.endsWith('.md')) {
 		parseTestsInFileContents(getOrCreateFile(e.uri), e.getText());
 		// }
+	}
+
+	async function findSpecFiles() {
+		const specFiles = await vscode.workspace.findFiles(
+			'**/*.spec.ts',
+			'**/node_modules/**'
+		);
+		specFiles.forEach(async (file) => {
+			console.log(file.fsPath);
+			const rawContent = await vscode.workspace.fs.readFile(file);
+			const contents = new TextDecoder().decode(rawContent);
+			const tests = findKarmaTestsAndSuites(contents);
+			const items = addTests(controller, tests, file);
+			controller.items.add(items); // Pass an array of TestItem objects
+		});
 	}
 
 	async function parseTestsInFileContents(
@@ -133,58 +159,53 @@ export function activate(context: vscode.ExtensionContext) {
 		token: vscode.CancellationToken
 	) {
 		const run = controller.createTestRun(request);
-		const queue: vscode.TestItem[] = [];
+		// const queue: vscode.TestItem[] = [];
 
-		// Loop through all included tests, or all known tests, and add them to our queue
-		if (request.include) {
-			request.include.forEach((test) => queue.push(test));
-		} else {
-			controller.items.forEach((test) => queue.push(test));
-		}
+		// // Loop through all included tests, or all known tests, and add them to our queue
+		// if (request.include) {
+		// 	request.include.forEach((test) => queue.push(test));
+		// } else {
+		// 	controller.items.forEach((test) => queue.push(test));
+		// }
 
-		// For every test that was queued, try to run it. Call run.passed() or run.failed().
-		// The `TestMessage` can contain extra information, like a failing location or
-		// a diff output. But here we'll just give it a textual message.
-		while (queue.length > 0 && !token.isCancellationRequested) {
-			const test = queue.pop()!;
+		// // For every test that was queued, try to run it. Call run.passed() or run.failed().
+		// // The `TestMessage` can contain extra information, like a failing location or
+		// // a diff output. But here we'll just give it a textual message.
+		// while (queue.length > 0 && !token.isCancellationRequested) {
+		// 	const test = queue.pop()!;
 
-			// Skip tests the user asked to exclude
-			if (request.exclude?.includes(test)) {
-				continue;
-			}
+		// 	// Skip tests the user asked to exclude
+		// 	if (request.exclude?.includes(test)) {
+		// 		continue;
+		// 	}
 
-			switch (getType(test)) {
-				case ItemType.File:
-					// If we're running a file and don't know what it contains yet, parse it now
-					if (test.children.size === 0) {
-						// await parseTestsInFileContents(test);
-					}
-					break;
-				case ItemType.TestCase:
-					// Otherwise, just run the test case. Note that we don't need to manually
-					// set the state of parent tests; they'll be set automatically.
-					const start = Date.now();
-					try {
-						// await assertTestPasses(test);
-						run.passed(test, Date.now() - start);
-					} catch (e: any) {
-						run.failed(
-							test,
-							new vscode.TestMessage(e.message),
-							Date.now() - start
-						);
-					}
-					break;
-			}
+		// 	switch (getType(test)) {
+		// 		case ItemType.File:
+		// 			// If we're running a file and don't know what it contains yet, parse it now
+		// 			if (test.children.size === 0) {
+		// 				// await parseTestsInFileContents(test);
+		// 			}
+		// 			break;
+		// 		case ItemType.TestCase:
+		// 			// Otherwise, just run the test case. Note that we don't need to manually
+		// 			// set the state of parent tests; they'll be set automatically.
+		// 			const start = Date.now();
+		// 			try {
+		// 				// await assertTestPasses(test);
+		// 				run.passed(test, Date.now() - start);
+		// 			} catch (e: any) {
+		// 				run.failed(
+		// 					test,
+		// 					new vscode.TestMessage(e.message),
+		// 					Date.now() - start
+		// 				);
+		// 			}
+		// 			break;
+		// 	}
 
-			test.children.forEach((test) => queue.push(test));
-		}
+		// 	test.children.forEach((test) => queue.push(test));
+		// }
 
-		for await (const file of readCoverageOutput()) {
-			run.addCoverage(
-				new vscode.FileCoverage(file.uri, file.statementCoverage)
-			);
-		}
 		// Make sure to end the run after all tests have been executed:
 		run.end();
 	}
@@ -213,13 +234,16 @@ async function discoverAllFilesInWorkspace() {
 
 	return Promise.all(
 		vscode.workspace.workspaceFolders.map(async (workspaceFolder) => {
-			const pattern = new vscode.RelativePattern(workspaceFolder, '**/*.md');
+			const pattern = new vscode.RelativePattern(
+				workspaceFolder,
+				'**/*.spec.ts'
+			);
 			const watcher = vscode.workspace.createFileSystemWatcher(pattern);
 
-			// // When files are created, make sure there's a corresponding "file" node in the tree
-			// watcher.onDidCreate(uri => getOrCreateFile(uri));
-			// // When files change, re-parse them. Note that you could optimize this so
-			// // that you only re-parse children that have been resolved in the past.
+			// When files are created, make sure there's a corresponding "file" node in the tree
+			watcher.onDidCreate((uri) => console.log(uri));
+			// When files change, re-parse them. Note that you could optimize this so
+			// that you only re-parse children that have been resolved in the past.
 			// watcher.onDidChange(uri => parseTestsInFileContents(getOrCreateFile(uri)));
 			// // And, finally, delete TestItems for removed files. This is simple, since
 			// // we use the URI as the TestItem's ID.

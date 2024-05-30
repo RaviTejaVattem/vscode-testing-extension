@@ -1,5 +1,9 @@
-import { TestController, TestItem } from 'vscode';
+import { TestController, TestItem, Uri, workspace } from 'vscode';
 import { IParsedNode } from './types';
+import { spawn } from 'child_process';
+import { read } from 'fs';
+import path from 'path';
+import { dir } from 'console';
 
 // const nestedSuite = controller.createTestItem(
 // 	'neested',
@@ -28,11 +32,68 @@ import { IParsedNode } from './types';
 // 	children: IParsedNode[];
 // };
 
-export function addTests(controller: TestController, tests: IParsedNode) {
-	let root = controller.createTestItem(tests.name, tests.name);
+export function addTests(
+	controller: TestController,
+	tests: IParsedNode,
+	file: Uri
+) {
+	let root = controller.createTestItem(tests.name, tests.name, file);
 
 	tests.children.forEach((children) => {
-		root.children.add(addTests(controller, children));
+		root.children.add(addTests(controller, children, file));
 	});
 	return root;
+}
+
+export function spawnAProcess() {
+	// const child = spawn('node', [
+	// 	'./node_modules/@angular/cli/bin/ng',
+	// 	'test',
+	// 	'test-pjkt',
+	// 	'--karma-config=karma.conf.js',
+	// 	'--progress=false'
+	// ]);
+
+	// // Listen to the output
+	// child.stdout.on('data', (data) => {
+	// 	console.log(`stdout: ${data}`);
+
+	// 	// Conditionally kill the process
+	// 	if (data.includes('some condition')) {
+	// 		child.kill();
+	// 	}
+	// });
+
+	// child.stderr.on('data', (data) => {
+	// 	console.error(`stderr: ${data}`);
+	// });
+
+	// child.on('close', (code) => {
+	// 	console.log(`child process exited with code ${code}`);
+	// });
+
+	// return child;
+	let childProcess;
+	let wsFolders = workspace?.workspaceFolders;
+
+	if (wsFolders && wsFolders.length > 0) {
+		process.chdir(wsFolders[0].uri.fsPath);
+		childProcess = spawn('npx', [
+			'ng',
+			'test',
+			'--karma-config=karma.conf.js',
+			'--progress=false'
+		]);
+		childProcess.stdout.on('data', (data) => {
+			console.log(`stdout: ${data}`);
+		});
+		childProcess.stderr.on('data', (data) => {
+			console.error(`stderr: ${data}`);
+		});
+		childProcess.on('close', (code) => {
+			console.log(`child process exited with code ${code}`);
+		});
+	}
+
+	return childProcess;
 }
