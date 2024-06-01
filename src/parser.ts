@@ -22,12 +22,12 @@ export function findKarmaTestsAndSuites(fileContent: string) {
 					args[0] && ts.isStringLiteral(args[0]) ? args[0].text : '';
 				const start: Position = {
 					line: sourceFile.getLineAndCharacterOfPosition(node.getStart()).line,
-					character: sourceFile.getLineAndCharacterOfPosition(node.getStart())
+					column: sourceFile.getLineAndCharacterOfPosition(node.getStart())
 						.character
 				};
 				const end: Position = {
 					line: sourceFile.getLineAndCharacterOfPosition(node.getEnd()).line,
-					character: sourceFile.getLineAndCharacterOfPosition(node.getEnd())
+					column: sourceFile.getLineAndCharacterOfPosition(node.getEnd())
 						.character
 				};
 				const newNode: IParsedNode = {

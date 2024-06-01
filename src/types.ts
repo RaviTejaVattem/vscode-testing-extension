@@ -1,6 +1,6 @@
 export type Position = {
 	line: number;
-	character: number;
+	column: number;
 };
 
 export type IParsedNode = {

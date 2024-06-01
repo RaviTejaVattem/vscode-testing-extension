@@ -1,9 +1,10 @@
-import { TestController, TestItem, Uri, workspace } from 'vscode';
+import { Range, TestController, TestItem, Uri, workspace } from 'vscode';
 import { IParsedNode } from './types';
 import { spawn } from 'child_process';
 import { read } from 'fs';
 import path from 'path';
 import { dir } from 'console';
+import * as karma from './karma-test';
 
 // const nestedSuite = controller.createTestItem(
 // 	'neested',
@@ -38,7 +39,7 @@ export function addTests(
 	file: Uri
 ) {
 	let root = controller.createTestItem(tests.name, tests.name, file);
-
+	// item.range = new Range(start.range.start, end.range.end);
 	tests.children.forEach((children) => {
 		root.children.add(addTests(controller, children, file));
 	});

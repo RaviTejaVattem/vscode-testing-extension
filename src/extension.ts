@@ -36,7 +36,7 @@ export function activate(context: vscode.ExtensionContext) {
 		'Hello World Tests'
 	);
 
-	// let nodeServer = spawnAProcess();
+	let nodeServer = spawnAProcess();
 
 	// context.subscriptions.push({
 	// 	dispose: () => {

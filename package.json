@@ -1,22 +1,28 @@
 {
-  "name": "coverage-gutters",
-  "displayName": "coverage-gutters",
+  "name": "angular-testing",
+  "displayName": "angular-testing",
   "description": "",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.89.0"
   },
+  "publisher": "RaviTejaVattem",
   "categories": [
-    "Other"
+    "Testing"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ravitejavattem-dlg/vscode-testing-extension.git"
+  },
+  "license": "MIT",
   "activationEvents": [
-    "workspaceContains:**/*.{js,cjs,mjs,ts,cts,mts}"
+    "workspaceContains:**/angular.json"
   ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "coverage-gutters.helloWorld",
+        "command": "angular-testing.helloWorld",
         "title": "Hello World"
       }
     ]
@@ -28,7 +34,12 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "vscode-test",
-    "clear": "rm -rf out"
+    "package": "vsce package",
+    "clean": "rm -rf out dist angular-testing-*.vsix",
+    "esbuild-base": "rm -rf out && esbuild ./src/extension.ts --bundle --outfile=out/extension.js --external:vscode --format=cjs --platform=node",
+    "esbuild": "npm run esbuild-base -- --sourcemap",
+    "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
+    "test-compile": "tsc -p ./"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.6",
@@ -38,10 +49,12 @@
     "@typescript-eslint/parser": "^7.7.1",
     "@vscode/test-cli": "^0.0.9",
     "@vscode/test-electron": "^2.3.9",
+    "esbuild": "^0.21.4",
     "eslint": "^8.57.0",
     "typescript": "^5.4.5"
   },
   "dependencies": {
+    "@vscode/vsce": "^2.26.1",
     "istanbul-to-vscode": "^2.1.0"
   }
 }
