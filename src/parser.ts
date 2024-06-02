@@ -1,10 +1,13 @@
 import { IParsedNode, Position } from './types';
 import * as ts from 'typescript';
+import * as vscode from 'vscode';
 
-export function findKarmaTestsAndSuites(fileContent: string) {
+export async function findKarmaTestsAndSuites(file: vscode.Uri) {
+	const rawContent = await vscode.workspace.fs.readFile(file);
+	const content = new TextDecoder().decode(rawContent);
 	const sourceFile = ts.createSourceFile(
 		'./',
-		fileContent,
+		content,
 		ts.ScriptTarget.Latest,
 		true
 	);
@@ -55,6 +58,11 @@ export function findKarmaTestsAndSuites(fileContent: string) {
 	}
 
 	visit(sourceFile, null);
+
+	if (!root.name) {
+		root.name = `Incorrect >>>> ${file.fsPath.split('/').pop()}`;
+		root.children = [];
+	}
 
 	return root;
 }

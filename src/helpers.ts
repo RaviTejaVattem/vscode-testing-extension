@@ -1,4 +1,11 @@
-import { Range, TestController, TestItem, Uri, workspace } from 'vscode';
+import {
+	Range,
+	TestController,
+	TestItem,
+	TestRun,
+	Uri,
+	workspace
+} from 'vscode';
 import { IParsedNode } from './types';
 import { spawn } from 'child_process';
 import { read } from 'fs';
@@ -33,15 +40,14 @@ import * as karma from './karma-test';
 // 	children: IParsedNode[];
 // };
 
-export function addTests(
+export async function addTests(
 	controller: TestController,
 	tests: IParsedNode,
 	file: Uri
 ) {
 	let root = controller.createTestItem(tests.name, tests.name, file);
-	// item.range = new Range(start.range.start, end.range.end);
-	tests.children.forEach((children) => {
-		root.children.add(addTests(controller, children, file));
+	tests.children.forEach(async (children) => {
+		root.children.add(await addTests(controller, children, file));
 	});
 	return root;
 }
@@ -83,18 +89,55 @@ export function spawnAProcess() {
 			'ng',
 			'test',
 			'--karma-config=karma.conf.js',
-			'--progress=false'
+			'--code-coverage',
+			'--progress'
 		]);
 		childProcess.stdout.on('data', (data) => {
-			console.log(`stdout: ${data}`);
+			console.log(`Main server - stdout: ${data}`);
 		});
 		childProcess.stderr.on('data', (data) => {
-			console.error(`stderr: ${data}`);
+			console.error(`Main server - stderr: ${data}`);
 		});
 		childProcess.on('close', (code) => {
-			console.log(`child process exited with code ${code}`);
+			console.log(`Main server - child process exited with code ${code}`);
 		});
 	}
 
 	return childProcess;
+}
+
+export async function testExecution(node: TestItem, run: TestRun) {
+	let childProcess;
+	let wsFolders = workspace?.workspaceFolders;
+
+	if (node.parent && wsFolders && wsFolders.length > 0) {
+		const testName = `${node.parent.id} ${node.id}`;
+		process.chdir(wsFolders[0].uri.fsPath);
+		childProcess = spawn('npx', [
+			'karma',
+			'run',
+			'--port 9876',
+			'--',
+			`--grep=${testName}`,
+			'--progress=true',
+			'--no-watch'
+		]);
+		childProcess.stdout.on('data', (data) => {
+			console.log(`Test server - stdout: ${data}`);
+		});
+		childProcess.stderr.on('data', (data) => {
+			console.log(`Test server - stderr: ${data}`);
+		});
+		childProcess.on('close', (code) => {
+			if (code === 0) {
+				run.passed(node);
+			} else {
+				run.failed(node, {
+					message: 'test failed'
+				});
+			}
+
+			console.log(`Test server - child process exited with code ${code}`);
+		});
+	}
 }

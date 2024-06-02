@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { IParsedNode } from './types';
 import { IstanbulCoverageContext } from 'istanbul-to-vscode';
 import path from 'path';
+import { testExecution } from './helpers';
 
 export function loadFakeTests(controller: vscode.TestController) {
 	// const nestedSuite = controller.createTestItem(
@@ -30,18 +31,18 @@ export async function runFakeTests(
 ): Promise<void> {
 	const run = controller.createTestRun(request);
 	let wsFolders = vscode.workspace?.workspaceFolders;
-	if (context) {
-		if (wsFolders && wsFolders.length > 0) {
-			const dirPath = path.join(wsFolders[0].uri.fsPath, '/coverage/qnb');
-			await context.apply(run, dirPath);
-		}
-	}
 	if (request.include) {
 		await Promise.all(request.include.map((t) => runNode(t, request, run)));
 	} else {
 		await Promise.all(
 			mapTestItems(controller.items, (t) => runNode(t, request, run))
 		);
+	}
+	if (context) {
+		if (wsFolders && wsFolders.length > 0) {
+			const dirPath = path.join(wsFolders[0].uri.fsPath, '/coverage/qnb');
+			await context.apply(run, dirPath);
+		}
 	}
 
 	run.end();
@@ -65,13 +66,7 @@ async function runNode(
 		);
 	} else {
 		run.started(node);
-
-		await new Promise<void>((done) => setTimeout(done, Math.random() * 5000));
-
-		run.failed(node, {
-			message: 'This test failed!',
-			expectedOutput: 'expected output'
-		});
+		await testExecution(node, run);
 	}
 }
 

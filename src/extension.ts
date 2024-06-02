@@ -112,11 +112,8 @@ export function activate(context: vscode.ExtensionContext) {
 			'**/node_modules/**'
 		);
 		specFiles.forEach(async (file) => {
-			console.log(file.fsPath);
-			const rawContent = await vscode.workspace.fs.readFile(file);
-			const contents = new TextDecoder().decode(rawContent);
-			const tests = findKarmaTestsAndSuites(contents);
-			const items = addTests(controller, tests, file);
+			const tests = await findKarmaTestsAndSuites(file);
+			const items = await addTests(controller, tests, file);
 			controller.items.add(items); // Pass an array of TestItem objects
 		});
 	}
