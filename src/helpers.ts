@@ -12,6 +12,7 @@ import { read } from 'fs';
 import path from 'path';
 import { dir } from 'console';
 import * as karma from './karma-test';
+import { spawnSync } from 'child_process';
 
 // const nestedSuite = controller.createTestItem(
 // 	'neested',
@@ -53,33 +54,6 @@ export async function addTests(
 }
 
 export function spawnAProcess() {
-	// const child = spawn('node', [
-	// 	'./node_modules/@angular/cli/bin/ng',
-	// 	'test',
-	// 	'test-pjkt',
-	// 	'--karma-config=karma.conf.js',
-	// 	'--progress=false'
-	// ]);
-
-	// // Listen to the output
-	// child.stdout.on('data', (data) => {
-	// 	console.log(`stdout: ${data}`);
-
-	// 	// Conditionally kill the process
-	// 	if (data.includes('some condition')) {
-	// 		child.kill();
-	// 	}
-	// });
-
-	// child.stderr.on('data', (data) => {
-	// 	console.error(`stderr: ${data}`);
-	// });
-
-	// child.on('close', (code) => {
-	// 	console.log(`child process exited with code ${code}`);
-	// });
-
-	// return child;
 	let childProcess;
 	let wsFolders = workspace?.workspaceFolders;
 
@@ -113,7 +87,7 @@ export async function testExecution(node: TestItem, run: TestRun) {
 	if (node.parent && wsFolders && wsFolders.length > 0) {
 		const testName = `${node.parent.id} ${node.id}`;
 		process.chdir(wsFolders[0].uri.fsPath);
-		childProcess = spawn('npx', [
+		const result = spawnSync('npx', [
 			'karma',
 			'run',
 			'--port 9876',
@@ -122,22 +96,29 @@ export async function testExecution(node: TestItem, run: TestRun) {
 			'--progress=true',
 			'--no-watch'
 		]);
-		childProcess.stdout.on('data', (data) => {
-			console.log(`Test server - stdout: ${data}`);
-		});
-		childProcess.stderr.on('data', (data) => {
-			console.log(`Test server - stderr: ${data}`);
-		});
-		childProcess.on('close', (code) => {
-			if (code === 0) {
-				run.passed(node);
-			} else {
-				run.failed(node, {
-					message: 'test failed'
-				});
-			}
 
-			console.log(`Test server - child process exited with code ${code}`);
-		});
+		if (result.error) {
+			console.error(`Test server - error: ${result.error.message}`);
+		}
+
+		if (result.stdout) {
+			console.log(`Test server - stdout: ${result.stdout}`);
+		}
+
+		if (result.stderr) {
+			console.log(`Test server - stderr: ${result.stderr}`);
+		}
+
+		if (result.status === 0) {
+			run.passed(node);
+		} else {
+			run.failed(node, {
+				message: 'test failed'
+			});
+		}
+
+		console.log(
+			`Test server - child process exited with code ${result.status}`
+		);
 	}
 }
