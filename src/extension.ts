@@ -3,7 +3,11 @@
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import { IstanbulCoverageContext } from 'istanbul-to-vscode';
-import { loadFakeTests, runFakeTests } from './fakeTests';
+import {
+	loadFakeTests,
+	runFakeTests as showCoverage,
+	runTests
+} from './fakeTests';
 import { request } from 'http';
 import { findKarmaTestsAndSuites } from './parser';
 import { addTests, spawnAProcess } from './helpers';
@@ -49,13 +53,13 @@ export function activate(context: vscode.ExtensionContext) {
 	const runProfile = controller.createRunProfile(
 		'Run',
 		vscode.TestRunProfileKind.Run,
-		(request, token) => runFakeTests(controller, request),
+		(request, token) => runTests(controller, request),
 		true
 	);
 	const coverageProfile = controller.createRunProfile(
 		'Coverage',
 		vscode.TestRunProfileKind.Coverage,
-		(request, token) => runFakeTests(controller, request, coverageContext),
+		(request, token) => showCoverage(controller, request, coverageContext),
 		false
 	);
 

@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 import { IParsedNode } from './types';
 import { IstanbulCoverageContext } from 'istanbul-to-vscode';
 import path from 'path';
@@ -24,13 +25,11 @@ export function loadFakeTests(controller: vscode.TestController) {
 	return [];
 }
 
-export async function runFakeTests(
+export async function runTests(
 	controller: vscode.TestController,
-	request: vscode.TestRunRequest,
-	context?: IstanbulCoverageContext
+	request: vscode.TestRunRequest
 ): Promise<void> {
 	const run = controller.createTestRun(request);
-	let wsFolders = vscode.workspace?.workspaceFolders;
 	if (request.include) {
 		await Promise.all(request.include.map((t) => runNode(t, request, run)));
 	} else {
@@ -38,10 +37,26 @@ export async function runFakeTests(
 			mapTestItems(controller.items, (t) => runNode(t, request, run))
 		);
 	}
+	run.end();
+}
+
+export async function runFakeTests(
+	controller: vscode.TestController,
+	request: vscode.TestRunRequest,
+	context?: IstanbulCoverageContext
+): Promise<void> {
+	const run = controller.createTestRun(request);
+	let wsFolders = vscode.workspace?.workspaceFolders;
 	if (context) {
 		if (wsFolders && wsFolders.length > 0) {
 			const dirPath = path.join(wsFolders[0].uri.fsPath, '/coverage/qnb');
-			await context.apply(run, dirPath);
+			const filePath = path.join(dirPath, 'coverage-final.json');
+
+			if (fs.existsSync(filePath)) {
+				await context.apply(run, dirPath);
+			} else {
+				console.log('No coverage found, re-run the tests');
+			}
 		}
 	}
 
