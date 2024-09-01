@@ -19,7 +19,10 @@ export async function findKarmaTestsAndSuites(file: vscode.Uri) {
 			const { expression, arguments: args } = node;
 			if (
 				ts.isIdentifier(expression) &&
-				(expression.text === 'describe' || expression.text === 'it')
+				(expression.text === 'describe' ||
+					expression.text === 'it' ||
+					expression.text === 'fdescribe' ||
+					expression.text === 'fit')
 			) {
 				const testName =
 					args[0] && ts.isStringLiteral(args[0]) ? args[0].text : '';
@@ -48,7 +51,7 @@ export async function findKarmaTestsAndSuites(file: vscode.Uri) {
 				} else {
 					root = { ...newNode };
 				}
-				if (expression.text === 'describe') {
+				if (expression.text === 'describe' || expression.text === 'fdescribe') {
 					ts.forEachChild(node, (child) => visit(child, newNode));
 				}
 			}
@@ -61,6 +64,7 @@ export async function findKarmaTestsAndSuites(file: vscode.Uri) {
 
 	if (!root.name) {
 		root.name = `Incorrect >>>> ${file.fsPath.split('/').pop()}`;
+		root.location = undefined;
 		root.children = [];
 	}
 

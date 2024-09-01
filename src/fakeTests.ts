@@ -27,15 +27,30 @@ export function loadFakeTests(controller: vscode.TestController) {
 
 export async function runTests(
 	controller: vscode.TestController,
-	request: vscode.TestRunRequest
+	request: vscode.TestRunRequest,
+	cancellationToken: vscode.CancellationToken,
+	isDebug: boolean = false
 ): Promise<void> {
 	const run = controller.createTestRun(request);
-	if (request.include) {
-		await Promise.all(request.include.map((t) => runNode(t, request, run)));
-	} else {
-		await Promise.all(
-			mapTestItems(controller.items, (t) => runNode(t, request, run))
-		);
+	run.token.onCancellationRequested(() => {
+		run.end();
+		return;
+	});
+
+	if (!cancellationToken.isCancellationRequested) {
+		if (request.include) {
+			await Promise.all(
+				request.include.map((t) =>
+					runNode(t, request, run, cancellationToken, isDebug)
+				)
+			);
+		} else {
+			await Promise.all(
+				mapTestItems(controller.items, (t) =>
+					runNode(t, request, run, cancellationToken, isDebug)
+				)
+			);
+		}
 	}
 	run.end();
 }
@@ -66,7 +81,9 @@ export async function runFakeTests(
 async function runNode(
 	node: vscode.TestItem,
 	request: vscode.TestRunRequest,
-	run: vscode.TestRun
+	run: vscode.TestRun,
+	cancellationToken?: vscode.CancellationToken,
+	isDebug: boolean = false
 ): Promise<void> {
 	// Users can hide or filter out tests from their run. If the request says
 	// they've done that for this node, then don't run it.
@@ -77,11 +94,15 @@ async function runNode(
 	if (node.children.size > 0) {
 		// recurse and run all children if this is a "suite"
 		await Promise.all(
-			mapTestItems(node.children, (t) => runNode(t, request, run))
+			mapTestItems(node.children, (t) =>
+				runNode(t, request, run, cancellationToken, isDebug)
+			)
 		);
-	} else {
+	} else if (!cancellationToken?.isCancellationRequested) {
 		run.started(node);
 		await testExecution(node, run);
+	} else {
+		run.end();
 	}
 }
 

@@ -1,45 +1,46 @@
+import { spawn, spawnSync } from 'child_process';
 import {
+	OutputChannel,
 	Range,
 	TestController,
 	TestItem,
 	TestRun,
 	Uri,
+	window,
 	workspace
 } from 'vscode';
+import { createTempKarmaConfig } from './karma.config';
 import { IParsedNode } from './types';
-import { spawn } from 'child_process';
-import { read } from 'fs';
-import path from 'path';
-import { dir } from 'console';
-import * as karma from './karma-test';
-import { spawnSync } from 'child_process';
+import { tmpdir } from 'os';
+import { PORT } from './constants';
 
-// const nestedSuite = controller.createTestItem(
-// 	'neested',
-// 	'Nested Suite',
-// 	undefined
-// );
-// nestedSuite.children.replace([
-// 	controller.createTestItem('test1', 'Test #1'),
-// 	controller.createTestItem('test2', 'Test #2')
-// ]);
-// const test3 = controller.createTestItem('test3', 'Test #3');
-// const test4 = controller.createTestItem('test4', 'Test #4');
+// import config from './karma.config';
 
-// return [nestedSuite, test3, test4];
+let outputChannel: OutputChannel = window.createOutputChannel(
+	'Ravi angular - Extension Logs'
+);
 
-// fileData: IParsedNode = {};
+// let wsFolders = workspace?.workspaceFolders;
+// let karmaConfig = undefined;
+// if (wsFolders && wsFolders.length > 0) {
+// 	karmaConfig = config(wsFolders[0].uri.fsPath);
+// }
 
-// {
-// 	fn: string;
-// 	name: string;
-// 	location: {
-// 		source?: string | null | undefined;
-// 		start: Position;
-// 		end: Position;
-// 	};
-// 	children: IParsedNode[];
-// };
+// const karmaConfigString = `module.exports = ${karmaConfig!.toString()};`;
+
+// const tempKarmaConfigPath = join(tmpdir(), 'karma.config.js');
+// writeFileSync(tempKarmaConfigPath, karmaConfigString);
+
+function setRange(testItem: TestItem, nodeDetails: IParsedNode) {
+	if (nodeDetails.location) {
+		testItem.range = new Range(
+			nodeDetails.location.start.line,
+			nodeDetails.location.start.column,
+			nodeDetails.location.end.line,
+			nodeDetails.location.end.column
+		);
+	}
+}
 
 export async function addTests(
 	controller: TestController,
@@ -47,33 +48,46 @@ export async function addTests(
 	file: Uri
 ) {
 	let root = controller.createTestItem(tests.name, tests.name, file);
+	setRange(root, tests);
+	outputChannel.appendLine(`Created root test item: ${tests.name}`);
 	tests.children.forEach(async (children) => {
-		root.children.add(await addTests(controller, children, file));
+		const childNode = await addTests(controller, children, file);
+		setRange(childNode, children);
+		root.children.add(childNode);
+		outputChannel.appendLine(`Added child test item: ${children.name}`);
 	});
 	return root;
 }
 
-export function spawnAProcess() {
+export function spawnAProcess(filePath: string) {
 	let childProcess;
 	let wsFolders = workspace?.workspaceFolders;
 
 	if (wsFolders && wsFolders.length > 0) {
+		// const tempKarmaConfigPath = createTempKarmaConfig(filePath);
+
 		process.chdir(wsFolders[0].uri.fsPath);
+		outputChannel.appendLine(
+			`Changed directory to: ${wsFolders[0].uri.fsPath}`
+		);
 		childProcess = spawn('npx', [
 			'ng',
 			'test',
-			'--karma-config=karma.conf.js',
+			`--karma-config=${filePath}`,
 			'--code-coverage',
 			'--progress'
 		]);
 		childProcess.stdout.on('data', (data) => {
 			console.log(`Main server - stdout: ${data}`);
+			outputChannel.appendLine(`Main server - stdout: ${data}`);
 		});
 		childProcess.stderr.on('data', (data) => {
 			console.error(`Main server - stderr: ${data}`);
+			outputChannel.appendLine(`Main server - stderr: ${data}`);
 		});
 		childProcess.on('close', (code) => {
 			console.log(`Main server - child process exited with code ${code}`);
+			outputChannel.appendLine(`Main server process exited with code ${code}`);
 		});
 	}
 
@@ -81,37 +95,56 @@ export function spawnAProcess() {
 }
 
 export async function testExecution(node: TestItem, run: TestRun) {
-	let childProcess;
+	let result;
 	let wsFolders = workspace?.workspaceFolders;
 
 	if (node.parent && wsFolders && wsFolders.length > 0) {
+		// await debug.startDebugging(wsFolders[0], {
+		// 	type: 'chrome',
+		// 	name: 'Run Tests',
+		// 	request: 'attach',
+		// 	port: 9222,
+		// 	webRoot: wsFolders[0],
+		// 	sourceMaps: true,
+		// 	sourceMapPathOverrides: {
+		// 		'webpack:///src/*': '${webRoot}/src/*'
+		// 	},
+		// 	skipFiles: ['node_modules/**']
+		// });
+
 		const testName = `${node.parent.id} ${node.id}`;
 		process.chdir(wsFolders[0].uri.fsPath);
-		const result = spawnSync('npx', [
+		result = spawnSync('npx', [
 			'karma',
 			'run',
-			'--port 9876',
+			`--port=${PORT}`,
 			'--',
 			`--grep=${testName}`,
 			'--progress=true',
 			'--no-watch'
 		]);
+		outputChannel.appendLine(`Test server - result: ${JSON.stringify(result)}`);
 
 		if (result.error) {
 			console.error(`Test server - error: ${result.error.message}`);
+			outputChannel.appendLine(`Test server - error: ${result.error.message}`);
 		}
 
 		if (result.stdout) {
 			console.log(`Test server - stdout: ${result.stdout}`);
+			outputChannel.appendLine(`Test server - stdout: ${result.stdout}`);
 		}
 
 		if (result.stderr) {
 			console.log(`Test server - stderr: ${result.stderr}`);
+			outputChannel.appendLine(`Test server - stderr: ${result.stderr}`);
 		}
 
 		if (result.status === 0) {
 			run.passed(node);
+			outputChannel.appendLine(`Test server - test passed`);
 		} else {
+			outputChannel.appendLine(`Test server - test failed`);
 			run.failed(node, {
 				message: 'test failed'
 			});
@@ -120,5 +153,9 @@ export async function testExecution(node: TestItem, run: TestRun) {
 		console.log(
 			`Test server - child process exited with code ${result.status}`
 		);
+		outputChannel.appendLine(
+			`Test server - child process exited with code ${result.status}`
+		);
 	}
+	// return result;
 }
