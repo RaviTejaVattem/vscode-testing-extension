@@ -13,7 +13,7 @@ import { findKarmaTestsAndSuites } from './parser';
 import { addTests, spawnAProcess } from './helpers';
 import { createTempKarmaConfig } from './karma.config';
 import { tmpdir } from 'os';
-import { writeFileSync } from 'fs';
+import { unlink, unlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { PORT } from './constants';
 
@@ -58,6 +58,16 @@ export function activate(context: vscode.ExtensionContext) {
 			tempKarmaConfigPath
 		);
 		writeFileSync(tempKarmaConfigPath, karmaConfig);
+
+		context.subscriptions.push({
+			dispose: () => {
+				try {
+					unlinkSync(tempKarmaConfigPath);
+				} catch (error) {
+					console.log('Error deleting file:', error);
+				}
+			}
+		});
 
 		return tempKarmaConfigPath;
 	};
