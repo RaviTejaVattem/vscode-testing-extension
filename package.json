@@ -31,7 +31,7 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "vscode-test",
-    "pkg": "vsce package",
+    "pkg": "npm run clean && vsce package",
     "clean": "rm -rf out dist angular-testing-*.vsix",
     "test-compile": "tsc -p ./",
     "compile": "npm run check-types && node esbuild.js",
@@ -56,6 +56,7 @@
   },
   "dependencies": {
     "@vscode/vsce": "^2.26.1",
-    "istanbul-to-vscode": "^2.1.0"
+    "istanbul-to-vscode": "^2.1.0",
+    "portfinder": "^1.0.32"
   }
 }

@@ -9,12 +9,7 @@ import {
 	window,
 	workspace
 } from 'vscode';
-import { createTempKarmaConfig } from './karma.config';
 import { IParsedNode } from './types';
-import { tmpdir } from 'os';
-import { PORT } from './constants';
-
-// import config from './karma.config';
 
 let outputChannel: OutputChannel = window.createOutputChannel(
 	'Ravi angular - Extension Logs'
@@ -117,7 +112,7 @@ export async function testExecution(node: TestItem, run: TestRun) {
 		result = spawnSync('npx', [
 			'karma',
 			'run',
-			`--port=${PORT}`,
+			`--port=3000`,
 			'--',
 			`--grep=${testName}`,
 			'--progress=true',

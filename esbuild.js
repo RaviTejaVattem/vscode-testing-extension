@@ -6,21 +6,21 @@ const watch = process.argv.includes('--watch');
 
 async function main() {
     const ctx = await esbuild.context({
-        entryPoints: ['src/extension.ts'],
-        bundle: true,
-        format: 'cjs',
-        minify: production,
-        sourcemap: true,
-        sourcesContent: true,
-        platform: 'node',
-        outfile: 'dist/extension.js',
-        external: ['vscode'],
-        logLevel: 'silent',
-        plugins: [
-            /* add to the end of plugins array */
-            esbuildProblemMatcherPlugin
-        ]
-    });
+			entryPoints: ['src/extension.ts', 'src/karma.conf.ts'],
+			bundle: true,
+			format: 'cjs',
+			minify: production,
+			sourcemap: true,
+			sourcesContent: true,
+			platform: 'node',
+			outdir: 'dist',
+			external: ['vscode'],
+			logLevel: 'silent',
+			plugins: [
+				/* add to the end of plugins array */
+				esbuildProblemMatcherPlugin
+			]
+		});
     if (watch) {
         await ctx.watch();
     } else {

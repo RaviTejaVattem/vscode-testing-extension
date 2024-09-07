@@ -1,21 +1,15 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
-import * as vscode from 'vscode';
-import { randomUUID } from 'crypto';
 import { IstanbulCoverageContext } from 'istanbul-to-vscode';
+import * as vscode from 'vscode';
 import {
 	loadFakeTests,
-	runFakeTests as showCoverage,
-	runTests
+	runTests,
+	runFakeTests as showCoverage
 } from './fakeTests';
-import { request } from 'http';
-import { findKarmaTestsAndSuites } from './parser';
 import { addTests, spawnAProcess } from './helpers';
-import { createTempKarmaConfig } from './karma.config';
-import { tmpdir } from 'os';
-import { unlink, unlinkSync, writeFileSync } from 'fs';
-import { join } from 'path';
-import { PORT } from './constants';
+import { findKarmaTestsAndSuites } from './parser';
+import getAvailablePort from './port-finder';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -45,39 +39,7 @@ export function activate(context: vscode.ExtensionContext) {
 		'Hello World Tests'
 	);
 
-	const writeServerConfig = () => {
-		const karmaConfig = createTempKarmaConfig(PORT);
-		console.log(
-			'<--------> ~ createTempKarmaConfig ~ karmaConfigString:',
-			karmaConfig
-		);
-		// Write the function string to a temporary JavaScript file
-		const tempKarmaConfigPath = join(tmpdir(), 'karma.config.js');
-		console.log(
-			'<--------> ~ writeServerConfig ~ tempKarmaConfigPath:',
-			tempKarmaConfigPath
-		);
-		writeFileSync(tempKarmaConfigPath, karmaConfig);
-
-		context.subscriptions.push({
-			dispose: () => {
-				try {
-					unlinkSync(tempKarmaConfigPath);
-				} catch (error) {
-					console.log('Error deleting file:', error);
-				}
-			}
-		});
-
-		return tempKarmaConfigPath;
-	};
-
-	const writeConfigToFileAndSpawnProcess = () => {
-		const filePath = writeServerConfig();
-		spawnAProcess(filePath);
-	};
-
-	let nodeServer = writeConfigToFileAndSpawnProcess();
+	spawnAProcess(context.extensionPath + '/dist/karma.conf.js');
 
 	const runProfile = controller.createRunProfile(
 		'Run',
