@@ -1,29 +1,8 @@
-import * as vscode from 'vscode';
 import * as fs from 'fs';
-import { IParsedNode } from './types';
 import { IstanbulCoverageContext } from 'istanbul-to-vscode';
 import path from 'path';
+import * as vscode from 'vscode';
 import { testExecution } from './helpers';
-
-export function loadFakeTests(controller: vscode.TestController) {
-	// const nestedSuite = controller.createTestItem(
-	// 	'neested',
-	// 	'Nested Suite',
-	// 	undefined
-	// );
-	// nestedSuite.children.replace([
-	// 	controller.createTestItem('test1', 'Test #1'),
-	// 	controller.createTestItem('test2', 'Test #2')
-	// ]);
-	// const test3 = controller.createTestItem('test3', 'Test #3');
-	// const test4 = controller.createTestItem('test4', 'Test #4');
-
-	// return [nestedSuite, test3, test4];
-
-	// fileData: IParsedNode = {};
-
-	return [];
-}
 
 export async function runTests(
 	controller: vscode.TestController,
@@ -55,7 +34,7 @@ export async function runTests(
 	run.end();
 }
 
-export async function runFakeTests(
+export async function runTestCoverage(
 	controller: vscode.TestController,
 	request: vscode.TestRunRequest,
 	context?: IstanbulCoverageContext

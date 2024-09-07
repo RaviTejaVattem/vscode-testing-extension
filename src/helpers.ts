@@ -9,6 +9,7 @@ import {
 	window,
 	workspace
 } from 'vscode';
+import getAvailablePort from './port-finder';
 import { IParsedNode } from './types';
 
 let outputChannel: OutputChannel = window.createOutputChannel(
@@ -108,11 +109,13 @@ export async function testExecution(node: TestItem, run: TestRun) {
 		// });
 
 		const testName = `${node.parent.id} ${node.id}`;
+		const port = await getAvailablePort();
+		console.log('<--------> ~ testExecution ~ port:', port);
 		process.chdir(wsFolders[0].uri.fsPath);
 		result = spawnSync('npx', [
 			'karma',
 			'run',
-			`--port=3000`,
+			`--port=${port}`,
 			'--',
 			`--grep=${testName}`,
 			'--progress=true',
