@@ -1,4 +1,5 @@
-import { spawn, spawnSync } from 'child_process';
+import { spawn } from 'child_process';
+import * as http from 'http';
 import {
 	OutputChannel,
 	Range,
@@ -9,8 +10,9 @@ import {
 	window,
 	workspace
 } from 'vscode';
-import getAvailablePort from './port-finder';
+import getAvailablePorts from './port-finder';
 import { IParsedNode } from './types';
+import { io } from 'socket.io-client';
 
 let outputChannel: OutputChannel = window.createOutputChannel(
 	'Ravi angular - Extension Logs'
@@ -55,7 +57,8 @@ export async function addTests(
 	return root;
 }
 
-export function spawnAProcess(filePath: string) {
+export function spawnAProcess(filePath: string, ports: number[]) {
+	listenToTestResults(ports[1]);
 	let childProcess;
 	let wsFolders = workspace?.workspaceFolders;
 
@@ -94,7 +97,7 @@ export async function testExecution(node: TestItem, run: TestRun) {
 	let result;
 	let wsFolders = workspace?.workspaceFolders;
 
-	if (node.parent && wsFolders && wsFolders.length > 0) {
+	if (wsFolders && wsFolders.length > 0) {
 		// await debug.startDebugging(wsFolders[0], {
 		// 	type: 'chrome',
 		// 	name: 'Run Tests',
@@ -108,52 +111,101 @@ export async function testExecution(node: TestItem, run: TestRun) {
 		// 	skipFiles: ['node_modules/**']
 		// });
 
-		const testName = `${node.parent.id} ${node.id}`;
-		const port = await getAvailablePort();
-		console.log('<--------> ~ testExecution ~ port:', port);
-		process.chdir(wsFolders[0].uri.fsPath);
-		result = spawnSync('npx', [
-			'karma',
-			'run',
-			`--port=${port}`,
-			'--',
-			`--grep=${testName}`,
-			'--progress=true',
-			'--no-watch'
-		]);
-		outputChannel.appendLine(`Test server - result: ${JSON.stringify(result)}`);
+		let testName = node.parent ? `${node.parent.id} ${node.id}` : `${node.id}`;
 
-		if (result.error) {
-			console.error(`Test server - error: ${result.error.message}`);
-			outputChannel.appendLine(`Test server - error: ${result.error.message}`);
-		}
+		console.log('<--------> ~ testExecution ~ testName:', testName);
 
-		if (result.stdout) {
-			console.log(`Test server - stdout: ${result.stdout}`);
-			outputChannel.appendLine(`Test server - stdout: ${result.stdout}`);
-		}
+		const ports = await getAvailablePorts();
+		console.log('<--------> ~ testExecution ~ port:', ports);
+		// process.chdir(wsFolders[0].uri.fsPath);
+		// result = spawnSync('npx', [
+		// 	'karma',
+		// 	'run',
+		// 	`--port=${port}`,
+		// 	'--',
+		// 	`--grep=${testName}`,
+		// 	'--progress=true',
+		// 	'--no-watch'
+		// ]);
+		// outputChannel.appendLine(`Test server - result: ${JSON.stringify(result)}`);
 
-		if (result.stderr) {
-			console.log(`Test server - stderr: ${result.stderr}`);
-			outputChannel.appendLine(`Test server - stderr: ${result.stderr}`);
-		}
+		// if (result.error) {
+		// 	console.error(`Test server - error: ${result.error.message}`);
+		// 	outputChannel.appendLine(`Test server - error: ${result.error.message}`);
+		// }
 
-		if (result.status === 0) {
-			run.passed(node);
-			outputChannel.appendLine(`Test server - test passed`);
-		} else {
-			outputChannel.appendLine(`Test server - test failed`);
-			run.failed(node, {
-				message: 'test failed'
+		// if (result.stdout) {
+		// 	console.log(`Test server - stdout: ${result.stdout}`);
+		// 	outputChannel.appendLine(`Test server - stdout: ${result.stdout}`);
+		// }
+
+		// if (result.stderr) {
+		// 	console.log(`Test server - stderr: ${result.stderr}`);
+		// 	outputChannel.appendLine(`Test server - stderr: ${result.stderr}`);
+		// }
+
+		// if (result.status === 0) {
+		// 	run.passed(node);
+		// 	outputChannel.appendLine(`Test server - test passed`);
+		// } else {
+		// 	outputChannel.appendLine(`Test server - test failed`);
+		// 	run.failed(node, {
+		// 		message: 'test failed'
+		// 	});
+		// }
+
+		// console.log(
+		// 	`Test server - child process exited with code ${result.status}`
+		// );
+		// outputChannel.appendLine(
+		// 	`Test server - child process exited with code ${result.status}`
+		// );
+
+		const requestBody = {
+			args: [`--grep=${testName}`],
+			refresh: true
+		};
+		const options = {
+			hostname: 'localhost',
+			path: '/run',
+			port: ports[0],
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' }
+		};
+
+		const request = http.request(options, (responseMessage) => {
+			let data = '';
+
+			responseMessage.on('data', (chunk) => {
+				console.log('>>>chunk:', chunk.toString());
 			});
-		}
 
-		console.log(
-			`Test server - child process exited with code ${result.status}`
-		);
-		outputChannel.appendLine(
-			`Test server - child process exited with code ${result.status}`
-		);
+			responseMessage.on('end', () => {
+				try {
+					// const jsonData = JSON.parse(data);
+					// console.log(data);
+					console.log('>>> execution end:', data);
+				} catch (error) {
+					console.error('Error parsing JSON:', error);
+				}
+			});
+		});
+
+		request.write(JSON.stringify(requestBody));
+		request.end();
+
+		return request;
 	}
-	// return result;
+}
+
+function listenToTestResults(port: number) {
+	const socket = io(`http://localhost:${port}`);
+
+	socket.on('connect', () => {
+		console.log('Connected to server');
+	});
+
+	socket.on('specComplete', (result: any) => {
+		console.log('Received specComplete result:', result);
+	});
 }

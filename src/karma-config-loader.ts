@@ -1,5 +1,5 @@
 import { KarmaCustomReporter } from './karma-reporter';
-import getAvailablePort from './port-finder';
+import getAvailablePorts from './port-finder';
 
 export class KarmaConfigLoader {
 	karmaPlugin = { [`reporter:custom`]: ['type', KarmaCustomReporter] };
@@ -26,7 +26,7 @@ export class KarmaConfigLoader {
 		// 	reporters: [{ type: 'lcov' }, { type: 'text-summary' }]
 		// },
 		config.reporters = ['progress', 'kjhtml', 'custom'];
-		config.port = await getAvailablePort();
+		config.port = (await getAvailablePorts())[0];
 		console.log('<--------> ~ port inside config:', config.port);
 		config.logLevel = config.LOG_INFO;
 		config.autoWatch = false;

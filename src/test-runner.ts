@@ -70,19 +70,9 @@ async function runNode(
 		return;
 	}
 
-	if (node.children.size > 0) {
-		// recurse and run all children if this is a "suite"
-		await Promise.all(
-			mapTestItems(node.children, (t) =>
-				runNode(t, request, run, cancellationToken, isDebug)
-			)
-		);
-	} else if (!cancellationToken?.isCancellationRequested) {
-		run.started(node);
-		await testExecution(node, run);
-	} else {
-		run.end();
-	}
+	run.started(node);
+	await testExecution(node, run);
+	run.end();
 }
 
 // Small helper that works like "array.map" for children of a test collection

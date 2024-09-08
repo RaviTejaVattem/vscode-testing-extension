@@ -57,6 +57,8 @@
   "dependencies": {
     "@vscode/vsce": "^2.26.1",
     "istanbul-to-vscode": "^2.1.0",
-    "portfinder": "^1.0.32"
+    "portfinder": "^1.0.32",
+    "socket.io": "^4.7.5",
+    "socket.io-client": "^4.7.5"
   }
 }

@@ -5,7 +5,7 @@ import * as vscode from 'vscode';
 import { runTestCoverage, runTests } from './test-runner';
 import { addTests, spawnAProcess } from './helpers';
 import { findKarmaTestsAndSuites } from './parser';
-import getAvailablePort from './port-finder';
+import getAvailablePorts from './port-finder';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -13,8 +13,9 @@ export const coverageContext = new IstanbulCoverageContext();
 
 export function activate(context: vscode.ExtensionContext) {
 	(async () => {
-		const port = await getAvailablePort();
-		console.log('Karma server starting on: ', port);
+		const ports = await getAvailablePorts();
+		console.log('Karma server starting on: ', ports);
+		spawnAProcess(context.extensionPath + '/dist/karma.conf.js', ports);
 	})();
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
@@ -29,8 +30,6 @@ export function activate(context: vscode.ExtensionContext) {
 		'helloWorldTests',
 		'Hello World Tests'
 	);
-
-	spawnAProcess(context.extensionPath + '/dist/karma.conf.js');
 
 	const runProfile = controller.createRunProfile(
 		'Run',
