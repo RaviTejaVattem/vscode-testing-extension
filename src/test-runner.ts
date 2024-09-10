@@ -24,11 +24,7 @@ export async function runTests(
 				)
 			);
 		} else {
-			await Promise.all(
-				mapTestItems(controller.items, (t) =>
-					runNode(t, request, run, cancellationToken, isDebug)
-				)
-			);
+			runAll(controller.items, run, cancellationToken, isDebug);
 		}
 	}
 	run.end();
@@ -57,12 +53,26 @@ export async function runTestCoverage(
 	run.end();
 }
 
+async function runAll(
+	items: vscode.TestItemCollection,
+	run: vscode.TestRun,
+	cancellationToken?: vscode.CancellationToken,
+	isDebug: boolean = false
+): Promise<void> {
+	mapTestItems(items, (t) => {
+		run.started(t);
+	});
+
+	await testExecution(undefined, run);
+}
+
 async function runNode(
 	node: vscode.TestItem,
 	request: vscode.TestRunRequest,
 	run: vscode.TestRun,
 	cancellationToken?: vscode.CancellationToken,
-	isDebug: boolean = false
+	isDebug: boolean = false,
+	runEverything?: boolean
 ): Promise<void> {
 	// Users can hide or filter out tests from their run. If the request says
 	// they've done that for this node, then don't run it.

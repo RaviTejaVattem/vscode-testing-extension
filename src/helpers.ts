@@ -106,82 +106,62 @@ export function spawnAProcess(filePath: string, ports: number[]) {
 	return childProcess;
 }
 
-export async function testExecution(
-	node: TestItem,
-	run: TestRun,
-	runEverything: boolean | undefined
-) {
-	let result;
-	let wsFolders = workspace?.workspaceFolders;
-	// const testData = JSON.stringify(testItems, null, 2);
-	// const filePath = `${tmpdir()}/testItem.json`;
-	// writeFileSync(filePath, testData);
-	// console.log(`Test item data written to file: ${filePath}`);
+export async function testExecution(node: TestItem | undefined, run: TestRun) {
+	// 	type: 'chrome',
+	// 	name: 'Run Tests',
+	// 	request: 'attach',
+	// 	port: 9222,
+	// 	webRoot: wsFolders[0],
+	// 	sourceMaps: true,
+	// 	sourceMapPathOverrides: {
+	// 		'webpack:///src/*': '${webRoot}/src/*'
+	// 	},
+	// 	skipFiles: ['node_modules/**']
+	// });
 
-	if (wsFolders && wsFolders.length > 0) {
-		// await debug.startDebugging(wsFolders[0], {
-		// 	type: 'chrome',
-		// 	name: 'Run Tests',
-		// 	request: 'attach',
-		// 	port: 9222,
-		// 	webRoot: wsFolders[0],
-		// 	sourceMaps: true,
-		// 	sourceMapPathOverrides: {
-		// 		'webpack:///src/*': '${webRoot}/src/*'
-		// 	},
-		// 	skipFiles: ['node_modules/**']
-		// });
-
+	let requestBody = {};
+	if (node) {
 		let testName = node.parent
 			? `${node.parent.label} ${node.label}`
 			: `${node.label}`;
 
-		console.log('<--------> ~ testExecution ~ testName:', testName);
-
-		const ports = await getAvailablePorts();
-		console.log('<--------> ~ testExecution ~ port:', ports);
-
-		console.log('<--------> ~ testExecution ~ node.id:', node.id);
-
-		const requestBody = runEverything
-			? {}
-			: {
-					args: [`--testRunId=${node.id}`, `--grep=${testName}`],
-					refresh: true
-			  };
-		const options = {
-			hostname: 'localhost',
-			path: '/run',
-			port: ports[0],
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' }
+		requestBody = {
+			args: [`--testRunId=${node.id}`, `--grep=${testName}`],
+			refresh: true
 		};
-
-		const request = http.request(options, (responseMessage) => {
-			let data = '';
-
-			responseMessage.on('data', (chunk) => {
-				console.log('>>>chunk:', chunk.toString());
-			});
-
-			responseMessage.on('end', () => {
-				try {
-					// const jsonData = JSON.parse(data);
-					// console.log(data);
-					console.log('>>> execution end:', data);
-				} catch (error) {
-					console.error('Error parsing JSON:', error);
-				} finally {
-					run.end();
-				}
-			});
-		});
-
-		request.write(JSON.stringify(requestBody));
-		request.end();
-
-		return request;
+		console.log('<--------> ~ testExecution ~ testName:', testName);
+		console.log('<--------> ~ testExecution ~ node.id:', node.id);
 	}
+
+	const ports = await getAvailablePorts();
+	console.log('<--------> ~ testExecution ~ port:', ports);
+
+	const options = {
+		hostname: 'localhost',
+		path: '/run',
+		port: ports[0],
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' }
+	};
+
+	const request = http.request(options, (responseMessage) => {
+		let data = '';
+
+		responseMessage.on('end', () => {
+			try {
+				console.log('>>> execution end:', data);
+			} catch (error) {
+				console.error('Error parsing JSON:', error);
+			} finally {
+				run.end();
+			}
+		});
+	});
+
+	request.write(JSON.stringify(requestBody));
+	request.end();
+
+	return request;
 }
 
 export function listenToTestResults(port: number, controller: TestController) {
@@ -205,25 +185,8 @@ export function listenToTestResults(port: number, controller: TestController) {
 		console.log('On run complete');
 		run.end();
 	});
-	socket.on(KarmaEventName.SpecSuccess, (result: any) => {
-		const testItem = testItems.get(result.fullName);
-		if (!testItem) {
-			console.error('Test item not found:', result.fullName);
-			return;
-		}
-		run.passed(testItem);
-	});
-	socket.on(KarmaEventName.SpecFailure, (result: any) => {
-		const testItem = testItems.get(result.fullName);
-		if (!testItem) {
-			console.error('Test item not found:', result.fullName);
-			return;
-		}
-		run.failed(testItem, { message: result.log });
-	});
 
 	socket.on(KarmaEventName.SpecComplete, (result: any) => {
-		// console.log('Received specComplete result:', result);
 		const testItem = testItems.get(result.fullName);
 		if (!testItem) {
 			console.error('Test item not found:', result.fullName);
@@ -237,20 +200,5 @@ export function listenToTestResults(port: number, controller: TestController) {
 		} else {
 			run.failed(testItem, { message: result.log.join('') });
 		}
-
-		// switch (true) {
-		// 	case result.skipped:
-		// 		run.skipped(testItem);
-		// 		break;
-		// 	case result.success:
-		// 		run.passed(testItem);
-		// 		break;
-		// 	case result.failed:
-		// 		run.failed(testItem, { message: result.log });
-		// 		break;
-		// 	default:
-		// 		run.errored(testItem, { message: result.log });
-		// 		break;
-		// }
 	});
 }
