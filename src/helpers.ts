@@ -1,22 +1,28 @@
 import { spawn } from 'child_process';
 import * as http from 'http';
+import { io } from 'socket.io-client';
 import {
 	OutputChannel,
 	Range,
 	TestController,
 	TestItem,
 	TestRun,
+	TestRunRequest,
 	Uri,
 	window,
 	workspace
 } from 'vscode';
 import getAvailablePorts from './port-finder';
 import { IParsedNode } from './types';
-import { io } from 'socket.io-client';
+import { KarmaEventName } from './constants';
+import { writeFileSync } from 'fs';
+import { tmpdir } from 'os';
 
 let outputChannel: OutputChannel = window.createOutputChannel(
 	'Ravi angular - Extension Logs'
 );
+
+const testItems = new Map<string, TestItem>();
 
 // let wsFolders = workspace?.workspaceFolders;
 // let karmaConfig = undefined;
@@ -43,13 +49,21 @@ function setRange(testItem: TestItem, nodeDetails: IParsedNode) {
 export async function addTests(
 	controller: TestController,
 	tests: IParsedNode,
-	file: Uri
+	file: Uri,
+	parentName: string = ''
 ) {
-	let root = controller.createTestItem(tests.name, tests.name, file);
+	let root = controller.createTestItem(
+		`${parentName} ${tests.name}`.trim(),
+		tests.name,
+		file
+	);
 	setRange(root, tests);
-	outputChannel.appendLine(`Created root test item: ${tests.name}`);
+	outputChannel.appendLine(
+		`Created root test item: ${tests.name} with testId: ${root.id}`
+	);
 	tests.children.forEach(async (children) => {
-		const childNode = await addTests(controller, children, file);
+		const childNode = await addTests(controller, children, file, tests.name);
+		testItems.set(`${tests.name} ${children.name}`, childNode);
 		setRange(childNode, children);
 		root.children.add(childNode);
 		outputChannel.appendLine(`Added child test item: ${children.name}`);
@@ -58,7 +72,6 @@ export async function addTests(
 }
 
 export function spawnAProcess(filePath: string, ports: number[]) {
-	listenToTestResults(ports[1]);
 	let childProcess;
 	let wsFolders = workspace?.workspaceFolders;
 
@@ -93,9 +106,17 @@ export function spawnAProcess(filePath: string, ports: number[]) {
 	return childProcess;
 }
 
-export async function testExecution(node: TestItem, run: TestRun) {
+export async function testExecution(
+	node: TestItem,
+	run: TestRun,
+	runEverything: boolean | undefined
+) {
 	let result;
 	let wsFolders = workspace?.workspaceFolders;
+	// const testData = JSON.stringify(testItems, null, 2);
+	// const filePath = `${tmpdir()}/testItem.json`;
+	// writeFileSync(filePath, testData);
+	// console.log(`Test item data written to file: ${filePath}`);
 
 	if (wsFolders && wsFolders.length > 0) {
 		// await debug.startDebugging(wsFolders[0], {
@@ -111,60 +132,23 @@ export async function testExecution(node: TestItem, run: TestRun) {
 		// 	skipFiles: ['node_modules/**']
 		// });
 
-		let testName = node.parent ? `${node.parent.id} ${node.id}` : `${node.id}`;
+		let testName = node.parent
+			? `${node.parent.label} ${node.label}`
+			: `${node.label}`;
 
 		console.log('<--------> ~ testExecution ~ testName:', testName);
 
 		const ports = await getAvailablePorts();
 		console.log('<--------> ~ testExecution ~ port:', ports);
-		// process.chdir(wsFolders[0].uri.fsPath);
-		// result = spawnSync('npx', [
-		// 	'karma',
-		// 	'run',
-		// 	`--port=${port}`,
-		// 	'--',
-		// 	`--grep=${testName}`,
-		// 	'--progress=true',
-		// 	'--no-watch'
-		// ]);
-		// outputChannel.appendLine(`Test server - result: ${JSON.stringify(result)}`);
 
-		// if (result.error) {
-		// 	console.error(`Test server - error: ${result.error.message}`);
-		// 	outputChannel.appendLine(`Test server - error: ${result.error.message}`);
-		// }
+		console.log('<--------> ~ testExecution ~ node.id:', node.id);
 
-		// if (result.stdout) {
-		// 	console.log(`Test server - stdout: ${result.stdout}`);
-		// 	outputChannel.appendLine(`Test server - stdout: ${result.stdout}`);
-		// }
-
-		// if (result.stderr) {
-		// 	console.log(`Test server - stderr: ${result.stderr}`);
-		// 	outputChannel.appendLine(`Test server - stderr: ${result.stderr}`);
-		// }
-
-		// if (result.status === 0) {
-		// 	run.passed(node);
-		// 	outputChannel.appendLine(`Test server - test passed`);
-		// } else {
-		// 	outputChannel.appendLine(`Test server - test failed`);
-		// 	run.failed(node, {
-		// 		message: 'test failed'
-		// 	});
-		// }
-
-		// console.log(
-		// 	`Test server - child process exited with code ${result.status}`
-		// );
-		// outputChannel.appendLine(
-		// 	`Test server - child process exited with code ${result.status}`
-		// );
-
-		const requestBody = {
-			args: [`--grep=${testName}`],
-			refresh: true
-		};
+		const requestBody = runEverything
+			? {}
+			: {
+					args: [`--testRunId=${node.id}`, `--grep=${testName}`],
+					refresh: true
+			  };
 		const options = {
 			hostname: 'localhost',
 			path: '/run',
@@ -187,6 +171,8 @@ export async function testExecution(node: TestItem, run: TestRun) {
 					console.log('>>> execution end:', data);
 				} catch (error) {
 					console.error('Error parsing JSON:', error);
+				} finally {
+					run.end();
 				}
 			});
 		});
@@ -198,14 +184,73 @@ export async function testExecution(node: TestItem, run: TestRun) {
 	}
 }
 
-function listenToTestResults(port: number) {
+export function listenToTestResults(port: number, controller: TestController) {
 	const socket = io(`http://localhost:${port}`);
+	let run: TestRun;
 
 	socket.on('connect', () => {
 		console.log('Connected to server');
 	});
 
-	socket.on('specComplete', (result: any) => {
-		console.log('Received specComplete result:', result);
+	socket.on(KarmaEventName.RunStart, () => {
+		console.log('On run start');
+		run = controller.createTestRun(
+			new TestRunRequest(),
+			'testRunRequest',
+			true
+		);
+	});
+
+	socket.on(KarmaEventName.RunComplete, () => {
+		console.log('On run complete');
+		run.end();
+	});
+	socket.on(KarmaEventName.SpecSuccess, (result: any) => {
+		const testItem = testItems.get(result.fullName);
+		if (!testItem) {
+			console.error('Test item not found:', result.fullName);
+			return;
+		}
+		run.passed(testItem);
+	});
+	socket.on(KarmaEventName.SpecFailure, (result: any) => {
+		const testItem = testItems.get(result.fullName);
+		if (!testItem) {
+			console.error('Test item not found:', result.fullName);
+			return;
+		}
+		run.failed(testItem, { message: result.log });
+	});
+
+	socket.on(KarmaEventName.SpecComplete, (result: any) => {
+		// console.log('Received specComplete result:', result);
+		const testItem = testItems.get(result.fullName);
+		if (!testItem) {
+			console.error('Test item not found:', result.fullName);
+			return;
+		}
+
+		if (result.skipped) {
+			run.skipped(testItem);
+		} else if (result.success) {
+			run.passed(testItem);
+		} else {
+			run.failed(testItem, { message: result.log.join('') });
+		}
+
+		// switch (true) {
+		// 	case result.skipped:
+		// 		run.skipped(testItem);
+		// 		break;
+		// 	case result.success:
+		// 		run.passed(testItem);
+		// 		break;
+		// 	case result.failed:
+		// 		run.failed(testItem, { message: result.log });
+		// 		break;
+		// 	default:
+		// 		run.errored(testItem, { message: result.log });
+		// 		break;
+		// }
 	});
 }

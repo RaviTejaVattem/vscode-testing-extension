@@ -3,7 +3,7 @@
 import { IstanbulCoverageContext } from 'istanbul-to-vscode';
 import * as vscode from 'vscode';
 import { runTestCoverage, runTests } from './test-runner';
-import { addTests, spawnAProcess } from './helpers';
+import { addTests, listenToTestResults, spawnAProcess } from './helpers';
 import { findKarmaTestsAndSuites } from './parser';
 import getAvailablePorts from './port-finder';
 
@@ -12,23 +12,25 @@ import getAvailablePorts from './port-finder';
 export const coverageContext = new IstanbulCoverageContext();
 
 export function activate(context: vscode.ExtensionContext) {
-	(async () => {
-		const ports = await getAvailablePorts();
-		console.log('Karma server starting on: ', ports);
-		spawnAProcess(context.extensionPath + '/dist/karma.conf.js', ports);
-	})();
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log(
-		'Congratulations, your extension "coverage-gutters" is now active!'
-	);
-
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
 	// The commandId parameter must match the command field in package.json
 	const controller = vscode.tests.createTestController(
 		'helloWorldTests',
 		'Hello World Tests'
+	);
+
+	(async () => {
+		const ports = await getAvailablePorts();
+		console.log('Karma server starting on: ', ports);
+		spawnAProcess(context.extensionPath + '/dist/karma.conf.js', ports);
+
+		listenToTestResults(ports[1], controller);
+	})();
+	// Use the console to output diagnostic information (console.log) and errors (console.error)
+	// This line of code will only be executed once when your extension is activated
+	console.log(
+		'Congratulations, your extension "coverage-gutters" is now active!'
 	);
 
 	const runProfile = controller.createRunProfile(
