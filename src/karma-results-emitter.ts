@@ -4,7 +4,7 @@ import getAvailablePorts from './port-finder';
 let server: Server | null = null;
 let serverPromise: Promise<Server> | null = null;
 
-const initializeServer = () => {
+export const initializeServer = () => {
 	if (!serverPromise) {
 		serverPromise = getAvailablePorts()
 			.then((ports) => {

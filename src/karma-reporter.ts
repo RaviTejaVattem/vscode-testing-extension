@@ -1,5 +1,8 @@
 import { KarmaEventName } from './constants';
-import { emitServerData } from './karma-results-emitter';
+import {
+	emitServerData,
+	initializeServer
+} from './karma-results-emitter';
 
 export function KarmaCustomReporter(
 	this: any,
@@ -7,6 +10,7 @@ export function KarmaCustomReporter(
 	config: any
 ) {
 	baseReporterDecorator(this);
+	initializeServer();
 
 	this.onRunStart = (browsers: any, results: any) => {
 		console.log('<--------> ~ results: onRunStart');
@@ -14,15 +18,6 @@ export function KarmaCustomReporter(
 		emitServerData(KarmaEventName.RunStart, null);
 	};
 
-	// this.onSpecSuccess = (browsers: any, results: any) => {
-	// 	emitServerData(KarmaEventName.SpecSuccess, results);
-	// };
-	// // this.onSpecSkipped = (browsers: any, results: any) => {
-	// // 	emitServerData(KarmaEventName.SpecSkipped, results);
-	// // };
-	// this.onSpecFailure = (browsers: any, results: any) => {
-	// 	emitServerData(KarmaEventName.SpecFailure, results);
-	// };
 	this.onSpecComplete = (browsers: any, results: any) => {
 		if (!results.skipped) {
 			emitServerData(KarmaEventName.SpecComplete, results);

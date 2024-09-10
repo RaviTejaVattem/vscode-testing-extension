@@ -15,7 +15,11 @@ export class KarmaConfigLoader {
 			this.karmaPlugin
 		];
 		config.client = {
-			clearContext: false
+			clearContext: false,
+			jasmine: {
+				random: false,
+				timeoutInterval: 10000
+			}
 		};
 		config.jasmineHtmlReporter = {
 			suppressAll: true
