@@ -26,17 +26,6 @@ let coverageFolderName = '';
 
 export const getCoverageFolderName = () => coverageFolderName;
 
-// let wsFolders = workspace?.workspaceFolders;
-// let karmaConfig = undefined;
-// if (wsFolders && wsFolders.length > 0) {
-// 	karmaConfig = config(wsFolders[0].uri.fsPath);
-// }
-
-// const karmaConfigString = `module.exports = ${karmaConfig!.toString()};`;
-
-// const tempKarmaConfigPath = join(tmpdir(), 'karma.config.js');
-// writeFileSync(tempKarmaConfigPath, karmaConfigString);
-
 function setRange(testItem: TestItem, nodeDetails: IParsedNode) {
 	if (nodeDetails.location) {
 		testItem.range = new Range(
@@ -52,20 +41,22 @@ export async function addTests(
 	controller: TestController,
 	tests: IParsedNode,
 	file: Uri,
-	parentName: string = ''
+	parentName?: string
 ) {
-	let root = controller.createTestItem(
-		`${parentName} ${tests.name}`.trim(),
-		tests.name,
-		file
-	);
+	let name = parentName ?? tests.name;
+	let root = controller.createTestItem(name, tests.name, file);
 	setRange(root, tests);
 	outputChannel.appendLine(
 		`Created root test item: ${tests.name} with testId: ${root.id}`
 	);
 	tests.children.forEach(async (children) => {
-		const childNode = await addTests(controller, children, file, tests.name);
-		testItems.set(`${tests.name} ${children.name}`, childNode);
+		const childNode = await addTests(
+			controller,
+			children,
+			file,
+			`${name} ${children.name}`
+		);
+		testItems.set(childNode.id, childNode);
 		setRange(childNode, children);
 		root.children.add(childNode);
 		outputChannel.appendLine(`Added child test item: ${children.name}`);
@@ -78,8 +69,6 @@ export function spawnAProcess(filePath: string, ports: number[]) {
 	let wsFolders = workspace?.workspaceFolders;
 
 	if (wsFolders && wsFolders.length > 0) {
-		// const tempKarmaConfigPath = createTempKarmaConfig(filePath);
-
 		process.chdir(wsFolders[0].uri.fsPath);
 		outputChannel.appendLine(
 			`Changed directory to: ${wsFolders[0].uri.fsPath}`
