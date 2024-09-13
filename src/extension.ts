@@ -48,7 +48,8 @@ export function activate(context: vscode.ExtensionContext) {
 	const coverageProfile = controller.createRunProfile(
 		'Coverage',
 		vscode.TestRunProfileKind.Coverage,
-		(request, token) => runTestCoverage(controller, request, coverageContext),
+		(request, token) =>
+			runTestCoverage(controller, request, context, coverageContext),
 		false
 	);
 

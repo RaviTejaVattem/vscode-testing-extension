@@ -22,3 +22,7 @@ export enum KarmaEventName {
 	FileListModified = 'file_list_modified',
 	BrowserCompleteWithNoMoreRetires = 'browser_complete_with_no_more_retries'
 }
+
+export enum ServerEvent {
+	CoverageData = 'coverage-data'
+}

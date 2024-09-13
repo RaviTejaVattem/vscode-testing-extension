@@ -1,3 +1,4 @@
+import { getRandomString } from './coverage-details';
 import { KarmaCustomReporter } from './karma-reporter';
 import getAvailablePorts from './port-finder';
 
@@ -24,11 +25,12 @@ export class KarmaConfigLoader {
 		config.jasmineHtmlReporter = {
 			suppressAll: true
 		};
-		// coverageReporter: {
-		// 	dir: join(options.karmaConfigHomePath, './coverage/';
-		// 	subdir: '.',
-		// 	reporters: [{ type: 'lcov' }, { type: 'text-summary' }]
-		// },
+		config.coverageReporter = {
+			type: 'json',
+			dir: `coverage/${getRandomString()}`,
+			subdir: '.',
+			file: 'coverage-final.json'
+		};
 		config.reporters = ['progress', 'kjhtml', 'custom'];
 		config.port = (await getAvailablePorts())[0];
 		console.log('<--------> ~ port inside config:', config.port);

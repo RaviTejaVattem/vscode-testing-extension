@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import { IstanbulCoverageContext } from 'istanbul-to-vscode';
 import path from 'path';
 import * as vscode from 'vscode';
-import { testExecution } from './helpers';
+import { getCoverageFolderName, testExecution } from './helpers';
 
 export async function runTests(
 	controller: vscode.TestController,
@@ -33,20 +33,23 @@ export async function runTests(
 export async function runTestCoverage(
 	controller: vscode.TestController,
 	request: vscode.TestRunRequest,
+	extensionContext: vscode.ExtensionContext,
 	context?: IstanbulCoverageContext
 ): Promise<void> {
 	const run = controller.createTestRun(request);
 	let wsFolders = vscode.workspace?.workspaceFolders;
 	if (context) {
-		if (wsFolders && wsFolders.length > 0) {
-			const dirPath = path.join(wsFolders[0].uri.fsPath, '/coverage/qnb');
-			const filePath = path.join(dirPath, 'coverage-final.json');
+		const dirPath = path.join(
+			extensionContext.extensionPath,
+			'/dist/coverage/',
+			getCoverageFolderName()
+		);
+		const filePath = path.join(dirPath, 'coverage-final.json');
 
-			if (fs.existsSync(filePath)) {
-				await context.apply(run, dirPath);
-			} else {
-				console.log('No coverage found, re-run the tests');
-			}
+		if (fs.existsSync(filePath)) {
+			await context.apply(run, dirPath);
+		} else {
+			console.log('No coverage found, re-run the tests');
 		}
 	}
 

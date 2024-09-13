@@ -12,17 +12,19 @@ import {
 	window,
 	workspace
 } from 'vscode';
+import { KarmaEventName, ServerEvent } from './constants';
 import getAvailablePorts from './port-finder';
 import { IParsedNode } from './types';
-import { KarmaEventName } from './constants';
-import { writeFileSync } from 'fs';
-import { tmpdir } from 'os';
 
 let outputChannel: OutputChannel = window.createOutputChannel(
 	'Ravi angular - Extension Logs'
 );
 
 const testItems = new Map<string, TestItem>();
+
+let coverageFolderName = '';
+
+export const getCoverageFolderName = () => coverageFolderName;
 
 // let wsFolders = workspace?.workspaceFolders;
 // let karmaConfig = undefined;
@@ -167,6 +169,11 @@ export async function testExecution(node: TestItem | undefined, run: TestRun) {
 export function listenToTestResults(port: number, controller: TestController) {
 	const socket = io(`http://localhost:${port}`);
 	let run: TestRun;
+
+	socket.on(ServerEvent.CoverageData, (coverageDir: any) => {
+		console.log('<--------> ~ socket.on ~ coverage file:', coverageDir);
+		coverageFolderName = coverageDir;
+	});
 
 	socket.on('connect', () => {
 		console.log('Connected to server');
