@@ -1,5 +1,6 @@
+import { resolve } from 'path';
 import { KarmaEventName } from './constants';
-import { emitServerData } from './karma-results-emitter';
+import { Worker } from 'worker_threads';
 
 export function KarmaCustomReporter(
 	this: any,
@@ -8,21 +9,23 @@ export function KarmaCustomReporter(
 ) {
 	baseReporterDecorator(this);
 
+	const workerScriptFile = resolve(__dirname, './karma-results-emitter.js');
+	const worker = new Worker(workerScriptFile);
+
 	this.onRunStart = (browsers: any, results: any) => {
 		console.log('<--------> ~ results: onRunStart');
 		this._browsers = [];
-		emitServerData(KarmaEventName.RunStart, null);
+		worker.postMessage({ key: KarmaEventName.RunStart });
 	};
 
 	this.onSpecComplete = (browsers: any, results: any) => {
 		if (!results.skipped) {
-			emitServerData(KarmaEventName.SpecComplete, results);
+			worker.postMessage({ key: KarmaEventName.SpecComplete, results });
 		}
 	};
 
 	this.onRunComplete = (browsers: any, results: any) => {
-		console.log('<--------> ~ this.onRunComplete ~ results:', results);
-		emitServerData(KarmaEventName.RunComplete, {});
+		worker.postMessage({ key: KarmaEventName.RunComplete });
 	};
 }
 

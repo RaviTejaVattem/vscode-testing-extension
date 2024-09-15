@@ -1,9 +1,13 @@
-import { Server } from 'socket.io';
+import { io } from 'socket.io-client';
 import { ApplicationConstants } from './constants';
+import { parentPort } from 'worker_threads';
 
 const port = parseInt(process.env[ApplicationConstants.KarmaSocketPort]!);
-const server = new Server(port);
+const socket = io('http://localhost:' + port + '/', {
+	forceNew: true,
+	reconnection: true
+});
 
-export const emitServerData = (key: string, data: any) => {
-	server.emit(key, data);
-};
+parentPort!.on('message', (event: any) => {
+	socket.emit(event.key, event?.results);
+});

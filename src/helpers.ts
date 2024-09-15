@@ -16,6 +16,8 @@ import { ApplicationConstants, KarmaEventName, ServerEvent } from './constants';
 import getAvailablePorts from './port-finder';
 import { IParsedNode } from './types';
 import fs from 'fs';
+import { Server } from 'socket.io';
+import { DefaultEventsMap } from 'socket.io/dist/typed-events';
 
 let ports: number[];
 
@@ -176,42 +178,43 @@ export async function testExecution(node: TestItem | undefined, run: TestRun) {
 	return request;
 }
 
-export function listenToTestResults(port: number, controller: TestController) {
-	const socket = io(`http://localhost:${port}`);
+export function listenToTestResults(
+	server: Server<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, any>,
+	controller: TestController
+) {
 	let run: TestRun;
 
-	socket.on('connect', () => {
+	server.on('connect', (socket) => {
 		console.log('Connected to server');
-	});
+		socket.on(KarmaEventName.RunStart, () => {
+			console.log('On run start');
+			run = controller.createTestRun(
+				new TestRunRequest(),
+				'testRunRequest',
+				true
+			);
+		});
 
-	socket.on(KarmaEventName.RunStart, () => {
-		console.log('On run start');
-		run = controller.createTestRun(
-			new TestRunRequest(),
-			'testRunRequest',
-			true
-		);
-	});
+		socket.on(KarmaEventName.RunComplete, () => {
+			console.log('On run complete');
+			run.end();
+		});
 
-	socket.on(KarmaEventName.RunComplete, () => {
-		console.log('On run complete');
-		run.end();
-	});
+		socket.on(KarmaEventName.SpecComplete, (result: any) => {
+			const testItem = testItems.get(result.fullName);
+			if (!testItem) {
+				console.error('Test item not found:', result.fullName);
+				return;
+			}
 
-	socket.on(KarmaEventName.SpecComplete, (result: any) => {
-		const testItem = testItems.get(result.fullName);
-		if (!testItem) {
-			console.error('Test item not found:', result.fullName);
-			return;
-		}
-
-		if (result.skipped) {
-			run.skipped(testItem);
-		} else if (result.success) {
-			run.passed(testItem);
-		} else {
-			run.failed(testItem, { message: result.log.join('') });
-		}
+			if (result.skipped) {
+				run.skipped(testItem);
+			} else if (result.success) {
+				run.passed(testItem);
+			} else {
+				run.failed(testItem, { message: result.log.join('') });
+			}
+		});
 	});
 }
 

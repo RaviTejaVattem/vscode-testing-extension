@@ -14,6 +14,7 @@ import {
 import { findKarmaTestsAndSuites } from './parser';
 import getAvailablePorts from './port-finder';
 import path from 'path';
+import { Server } from 'socket.io';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
@@ -36,7 +37,17 @@ export function activate(context: vscode.ExtensionContext) {
 		console.log('Karma server starting on: ', availablePorts);
 		spawnAProcess(context.extensionPath + '/dist/karma.conf.js');
 
-		listenToTestResults(availablePorts[1], controller);
+		const server = new Server(availablePorts[1]);
+		listenToTestResults(server, controller);
+
+		context.subscriptions.push({
+			dispose: () => {
+				if (server) {
+					server.close();
+					console.log('Server closed');
+				}
+			}
+		});
 	})();
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
