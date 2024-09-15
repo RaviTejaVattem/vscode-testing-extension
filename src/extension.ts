@@ -77,6 +77,17 @@ export function activate(context: vscode.ExtensionContext) {
 
 	coverageProfile.loadDetailedCoverage = coverageContext.loadDetailedCoverage;
 
+	vscode.workspace.onDidChangeTextDocument(async (e) => {
+		if (
+			e.document.languageId === 'typescript' &&
+			e.document.fileName.endsWith('.spec.ts')
+		) {
+			const tests = await findKarmaTestsAndSuites(e.document.uri);
+			const items = await addTests(controller, tests, e.document.uri);
+			controller.items.add(items);
+		}
+	});
+
 	controller.resolveHandler = async (test) => {
 		await findSpecFiles();
 		await discoverAllFilesInWorkspace();
