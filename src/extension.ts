@@ -3,13 +3,23 @@
 import { IstanbulCoverageContext } from 'istanbul-to-vscode';
 import * as vscode from 'vscode';
 import { runTestCoverage, runTests } from './test-runner';
-import { addTests, listenToTestResults, spawnAProcess } from './helpers';
+import {
+	addTests,
+	deleteCoverageDir as deleteDirectory,
+	freePort,
+	getRandomString,
+	listenToTestResults,
+	spawnAProcess
+} from './helpers';
 import { findKarmaTestsAndSuites } from './parser';
 import getAvailablePorts from './port-finder';
+import path from 'path';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export const coverageContext = new IstanbulCoverageContext();
+let extensionContext: vscode.ExtensionContext;
+let availablePorts: number[] = [];
 
 export function activate(context: vscode.ExtensionContext) {
 	// The command has been defined in the package.json file
@@ -19,13 +29,14 @@ export function activate(context: vscode.ExtensionContext) {
 		'helloWorldTests',
 		'Hello World Tests'
 	);
+	extensionContext = context;
 
 	(async () => {
-		const ports = await getAvailablePorts();
-		console.log('Karma server starting on: ', ports);
-		spawnAProcess(context.extensionPath + '/dist/karma.conf.js', ports);
+		availablePorts = await getAvailablePorts();
+		console.log('Karma server starting on: ', availablePorts);
+		spawnAProcess(context.extensionPath + '/dist/karma.conf.js');
 
-		listenToTestResults(ports[1], controller);
+		listenToTestResults(availablePorts[1], controller);
 	})();
 	// Use the console to output diagnostic information (console.log) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
@@ -136,7 +147,17 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 // This method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate() {
+	const folderName = path.join(
+		extensionContext.extensionPath,
+		'/dist/coverage/',
+		getRandomString()
+	);
+	deleteDirectory(folderName);
+	freePort(availablePorts[0]);
+	freePort(availablePorts[1]);
+	console.log('Deactivated');
+}
 
 async function discoverAllFilesInWorkspace() {
 	if (!vscode.workspace.workspaceFolders) {

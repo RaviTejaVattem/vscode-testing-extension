@@ -1,6 +1,5 @@
-import { getRandomString } from './coverage-details';
+import { ApplicationConstants } from './constants';
 import { KarmaCustomReporter } from './karma-reporter';
-import getAvailablePorts from './port-finder';
 
 export class KarmaConfigLoader {
 	karmaPlugin = { [`reporter:custom`]: ['type', KarmaCustomReporter] };
@@ -27,12 +26,12 @@ export class KarmaConfigLoader {
 		};
 		config.coverageReporter = {
 			type: 'json',
-			dir: `coverage/${getRandomString()}`,
+			dir: `coverage/${process.env[ApplicationConstants.KarmaCoverageDir]}`,
 			subdir: '.',
 			file: 'coverage-final.json'
 		};
 		config.reporters = ['progress', 'kjhtml', 'custom'];
-		config.port = (await getAvailablePorts())[0];
+		config.port = process.env[ApplicationConstants.KarmaPort];
 		console.log('<--------> ~ port inside config:', config.port);
 		config.logLevel = config.LOG_INFO;
 		config.autoWatch = false;

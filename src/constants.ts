@@ -26,3 +26,9 @@ export enum KarmaEventName {
 export enum ServerEvent {
 	CoverageData = 'coverage-data'
 }
+
+export enum ApplicationConstants {
+	KarmaPort = 'karmaPort',
+	KarmaSocketPort = 'karmaSocketPort',
+	KarmaCoverageDir = 'karmaCoverageDir'
+}

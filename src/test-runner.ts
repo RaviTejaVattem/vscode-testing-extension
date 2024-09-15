@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import { IstanbulCoverageContext } from 'istanbul-to-vscode';
 import path from 'path';
 import * as vscode from 'vscode';
-import { getCoverageFolderName, testExecution } from './helpers';
+import { getRandomString, testExecution } from './helpers';
 
 export async function runTests(
 	controller: vscode.TestController,
@@ -37,12 +37,11 @@ export async function runTestCoverage(
 	context?: IstanbulCoverageContext
 ): Promise<void> {
 	const run = controller.createTestRun(request);
-	let wsFolders = vscode.workspace?.workspaceFolders;
 	if (context) {
 		const dirPath = path.join(
 			extensionContext.extensionPath,
 			'/dist/coverage/',
-			getCoverageFolderName()
+			getRandomString()
 		);
 		const filePath = path.join(dirPath, 'coverage-final.json');
 

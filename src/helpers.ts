@@ -1,4 +1,4 @@
-import { spawn } from 'child_process';
+import { exec, spawn } from 'child_process';
 import * as http from 'http';
 import { io } from 'socket.io-client';
 import {
@@ -12,19 +12,27 @@ import {
 	window,
 	workspace
 } from 'vscode';
-import { KarmaEventName, ServerEvent } from './constants';
+import { ApplicationConstants, KarmaEventName, ServerEvent } from './constants';
 import getAvailablePorts from './port-finder';
 import { IParsedNode } from './types';
+import fs from 'fs';
+
+let ports: number[];
+
+let randomString: string;
+
+export const getRandomString = () => {
+	if (!randomString) {
+		randomString = Math.random().toString(36).slice(2);
+	}
+	return randomString;
+};
 
 let outputChannel: OutputChannel = window.createOutputChannel(
 	'Ravi angular - Extension Logs'
 );
 
 const testItems = new Map<string, TestItem>();
-
-let coverageFolderName = '';
-
-export const getCoverageFolderName = () => coverageFolderName;
 
 function setRange(testItem: TestItem, nodeDetails: IParsedNode) {
 	if (nodeDetails.location) {
@@ -64,7 +72,10 @@ export async function addTests(
 	return root;
 }
 
-export function spawnAProcess(filePath: string, ports: number[]) {
+export async function spawnAProcess(filePath: string) {
+	ports = await getAvailablePorts();
+	console.log('<--------> ~ ports:', ports);
+
 	let childProcess;
 	let wsFolders = workspace?.workspaceFolders;
 
@@ -73,13 +84,24 @@ export function spawnAProcess(filePath: string, ports: number[]) {
 		outputChannel.appendLine(
 			`Changed directory to: ${wsFolders[0].uri.fsPath}`
 		);
-		childProcess = spawn('npx', [
-			'ng',
-			'test',
-			`--karma-config=${filePath}`,
-			'--code-coverage',
-			'--progress'
-		]);
+		childProcess = spawn(
+			'npx',
+			[
+				'ng',
+				'test',
+				`--karma-config=${filePath}`,
+				'--code-coverage',
+				'--progress'
+			],
+			{
+				env: {
+					...process.env,
+					[ApplicationConstants.KarmaPort]: `${ports[0]}`,
+					[ApplicationConstants.KarmaSocketPort]: `${ports[1]}`,
+					[ApplicationConstants.KarmaCoverageDir]: getRandomString()
+				}
+			}
+		);
 		childProcess.stdout.on('data', (data) => {
 			console.log(`Main server - stdout: ${data}`);
 			outputChannel.appendLine(`Main server - stdout: ${data}`);
@@ -124,7 +146,6 @@ export async function testExecution(node: TestItem | undefined, run: TestRun) {
 		console.log('<--------> ~ testExecution ~ node.id:', node.id);
 	}
 
-	const ports = await getAvailablePorts();
 	console.log('<--------> ~ testExecution ~ port:', ports);
 
 	const options = {
@@ -159,11 +180,6 @@ export function listenToTestResults(port: number, controller: TestController) {
 	const socket = io(`http://localhost:${port}`);
 	let run: TestRun;
 
-	socket.on(ServerEvent.CoverageData, (coverageDir: any) => {
-		console.log('<--------> ~ socket.on ~ coverage file:', coverageDir);
-		coverageFolderName = coverageDir;
-	});
-
 	socket.on('connect', () => {
 		console.log('Connected to server');
 	});
@@ -195,6 +211,36 @@ export function listenToTestResults(port: number, controller: TestController) {
 			run.passed(testItem);
 		} else {
 			run.failed(testItem, { message: result.log.join('') });
+		}
+	});
+}
+
+export const deleteCoverageDir = (directory: string) => {
+	if (fs.existsSync(directory)) {
+		fs.rmdirSync(directory, { recursive: true });
+	}
+};
+
+export function freePort(port: number) {
+	// Find the process using the port
+	exec(`lsof -i :${port} -t`, (err, stdout, stderr) => {
+		if (err) {
+			console.error(`Error finding process using port ${port}: ${stderr}`);
+			return;
+		}
+
+		const pid = stdout.trim();
+		if (pid) {
+			// Kill the process using the PID
+			exec(`kill -9 ${pid}`, (killErr, killStdout, killStderr) => {
+				if (killErr) {
+					console.error(`Error killing process ${pid}: ${killStderr}`);
+				} else {
+					console.log(`Process ${pid} using port ${port} has been killed.`);
+				}
+			});
+		} else {
+			console.log(`No process found using port ${port}.`);
 		}
 	});
 }

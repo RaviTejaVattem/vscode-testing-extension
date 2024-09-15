@@ -1,6 +1,5 @@
-import { KarmaEventName, ServerEvent } from './constants';
-import { getRandomString } from './coverage-details';
-import { emitServerData, initializeServer } from './karma-results-emitter';
+import { KarmaEventName } from './constants';
+import { emitServerData } from './karma-results-emitter';
 
 export function KarmaCustomReporter(
 	this: any,
@@ -8,7 +7,6 @@ export function KarmaCustomReporter(
 	config: any
 ) {
 	baseReporterDecorator(this);
-	initializeServer();
 
 	this.onRunStart = (browsers: any, results: any) => {
 		console.log('<--------> ~ results: onRunStart');
@@ -25,7 +23,6 @@ export function KarmaCustomReporter(
 	this.onRunComplete = (browsers: any, results: any) => {
 		console.log('<--------> ~ this.onRunComplete ~ results:', results);
 		emitServerData(KarmaEventName.RunComplete, {});
-		emitServerData(ServerEvent.CoverageData, getRandomString());
 	};
 }
 
