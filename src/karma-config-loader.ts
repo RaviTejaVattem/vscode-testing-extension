@@ -3,7 +3,7 @@ import { KarmaCustomReporter } from './karma-reporter';
 
 export class KarmaConfigLoader {
 	karmaPlugin = { [`reporter:custom`]: ['type', KarmaCustomReporter] };
-	async loadConfig(config: any) {
+	loadConfig(config: any) {
 		config.basePath = '';
 		config.frameworks = ['jasmine', '@angular-devkit/build-angular'];
 		config.plugins = [
@@ -35,11 +35,28 @@ export class KarmaConfigLoader {
 		console.log('<--------> ~ port inside config:', config.port);
 		config.logLevel = config.LOG_INFO;
 		config.autoWatch = false;
-		config.browsers = ['ChromeHeadless'];
+		config.browsers = ['MyChromeHeadless'];
 		config.singleRun = false;
+		config.browserNoActivityTimeout = 1000 * 60 * 60 * 24;
+		config.browserDisconnectTimeout = 30_000;
+		config.pingTimeout = 1000 * 60 * 60 * 24;
+		config.captureTimeout = 1000 * 90;
+		config.browserSocketTimeout = 30_000;
+		config.processKillTimeout = 2000;
+		config.retryLimit = 3;
 		// proxies: {
 		// 	'/home/quote-policy/src/assets/': '/src/assets/'
 		// }
+		config.customLaunchers = {
+			MyChromeHeadless: {
+				base: 'ChromeHeadless',
+				flags: [
+					`--remote-debugging-port=${
+						process.env[ApplicationConstants.KarmaDebugPort]
+					}`
+				]
+			}
+		};
 
 		// return test;
 	}

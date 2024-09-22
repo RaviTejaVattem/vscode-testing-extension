@@ -29,6 +29,7 @@ export enum ServerEvent {
 
 export enum ApplicationConstants {
 	KarmaPort = 'karmaPort',
+	KarmaDebugPort = 'karmaDebugPort',
 	KarmaSocketPort = 'karmaSocketPort',
 	KarmaCoverageDir = 'karmaCoverageDir'
 }

@@ -1,5 +1,5 @@
 import { KarmaConfigLoader } from './karma-config-loader';
 
-export default async (config: any) => {
-	await new KarmaConfigLoader().loadConfig(config);
+export default (config: any) => {
+	new KarmaConfigLoader().loadConfig(config);
 };

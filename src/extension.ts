@@ -37,7 +37,7 @@ export function activate(context: vscode.ExtensionContext) {
 		console.log('Karma server starting on: ', availablePorts);
 		spawnAProcess(context.extensionPath + '/dist/karma.conf.js');
 
-		const server = new Server(availablePorts[1]);
+		const server = new Server(availablePorts[2]);
 		listenToTestResults(server, controller);
 
 		context.subscriptions.push({

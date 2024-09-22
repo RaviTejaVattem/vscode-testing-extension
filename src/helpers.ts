@@ -2,6 +2,7 @@ import { exec, spawn } from 'child_process';
 import * as http from 'http';
 import { io } from 'socket.io-client';
 import {
+	debug,
 	OutputChannel,
 	Range,
 	TestController,
@@ -20,6 +21,8 @@ import { Server } from 'socket.io';
 import { DefaultEventsMap } from 'socket.io/dist/typed-events';
 
 let ports: number[];
+
+const statusBarItem = window.createStatusBarItem();
 
 let randomString: string;
 
@@ -76,6 +79,8 @@ export async function addTests(
 
 export async function spawnAProcess(filePath: string) {
 	ports = await getAvailablePorts();
+	statusBarItem.text = `${ports[0]}`;
+	statusBarItem.tooltip = `Karma is running on port: ${ports[0]}`;
 	console.log('<--------> ~ ports:', ports);
 
 	let childProcess;
@@ -99,12 +104,14 @@ export async function spawnAProcess(filePath: string) {
 				env: {
 					...process.env,
 					[ApplicationConstants.KarmaPort]: `${ports[0]}`,
-					[ApplicationConstants.KarmaSocketPort]: `${ports[1]}`,
+					[ApplicationConstants.KarmaDebugPort]: `${ports[1]}`,
+					[ApplicationConstants.KarmaSocketPort]: `${ports[2]}`,
 					[ApplicationConstants.KarmaCoverageDir]: getRandomString()
 				}
 			}
 		);
 		childProcess.stdout.on('data', (data) => {
+			statusBarItem.show();
 			console.log(`Main server - stdout: ${data}`);
 			outputChannel.appendLine(`Main server - stdout: ${data}`);
 		});
@@ -122,17 +129,22 @@ export async function spawnAProcess(filePath: string) {
 }
 
 export async function testExecution(node: TestItem | undefined, run: TestRun) {
-	// 	type: 'chrome',
-	// 	name: 'Run Tests',
-	// 	request: 'attach',
-	// 	port: 9222,
-	// 	webRoot: wsFolders[0],
-	// 	sourceMaps: true,
-	// 	sourceMapPathOverrides: {
-	// 		'webpack:///src/*': '${webRoot}/src/*'
-	// 	},
-	// 	skipFiles: ['node_modules/**']
-	// });
+	const debugConfig = {
+		name: 'Karma Test Explorer Debugging',
+		type: 'chrome',
+		request: 'attach',
+		browserAttachLocation: 'workspace',
+		address: 'localhost',
+		port: ports[1],
+		timeout: 60000
+	};
+
+	const debugSession = await debug.startDebugging(undefined, debugConfig);
+	if (debugSession) {
+		console.log('Debugger started successfully');
+	} else {
+		console.error('Failed to start debugger');
+	}
 
 	let requestBody = {};
 	if (node) {
@@ -198,6 +210,8 @@ export function listenToTestResults(
 		socket.on(KarmaEventName.RunComplete, () => {
 			console.log('On run complete');
 			run.end();
+			debug.stopDebugging();
+			console.log('Debugger stopped successfully');
 		});
 
 		socket.on(KarmaEventName.SpecComplete, (result: any) => {
