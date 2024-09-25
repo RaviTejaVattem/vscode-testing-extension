@@ -1,6 +1,8 @@
 import { exec, spawn } from 'child_process';
+import fs from 'fs';
 import * as http from 'http';
-import { io } from 'socket.io-client';
+import { Server } from 'socket.io';
+import { DefaultEventsMap } from 'socket.io/dist/typed-events';
 import {
 	debug,
 	OutputChannel,
@@ -13,12 +15,8 @@ import {
 	window,
 	workspace
 } from 'vscode';
-import { ApplicationConstants, KarmaEventName, ServerEvent } from './constants';
-import getAvailablePorts from './port-finder';
+import { ApplicationConstants, KarmaEventName } from './constants';
 import { IParsedNode } from './types';
-import fs from 'fs';
-import { Server } from 'socket.io';
-import { DefaultEventsMap } from 'socket.io/dist/typed-events';
 
 let ports: number[];
 
@@ -77,8 +75,8 @@ export async function addTests(
 	return root;
 }
 
-export async function spawnAProcess(filePath: string) {
-	ports = await getAvailablePorts();
+export function spawnAProcess(filePath: string, availablePorts: number[]) {
+	ports = availablePorts;
 	statusBarItem.text = `${ports[0]}`;
 	statusBarItem.tooltip = `Karma is running on port: ${ports[0]}`;
 	console.log('<--------> ~ ports:', ports);
@@ -91,15 +89,15 @@ export async function spawnAProcess(filePath: string) {
 		outputChannel.appendLine(
 			`Changed directory to: ${wsFolders[0].uri.fsPath}`
 		);
+		// childProcess =exec(`npx ng test --karma-config=${filePath} --code-coverage --progress`, (e, stdout, stderr)=> {
+		// 	if (e instanceof Error) {
+		// 		console.error(e);
+		// 		throw e;
+		// 	}
+		// });
 		childProcess = spawn(
 			'npx',
-			[
-				'ng',
-				'test',
-				`--karma-config=${filePath}`,
-				'--code-coverage',
-				'--progress'
-			],
+			['ng', 'test', `--karma-config=${filePath}`, '--code-coverage'],
 			{
 				env: {
 					...process.env,
@@ -110,19 +108,19 @@ export async function spawnAProcess(filePath: string) {
 				}
 			}
 		);
-		childProcess.stdout.on('data', (data) => {
-			statusBarItem.show();
-			console.log(`Main server - stdout: ${data}`);
-			outputChannel.appendLine(`Main server - stdout: ${data}`);
-		});
-		childProcess.stderr.on('data', (data) => {
-			console.error(`Main server - stderr: ${data}`);
-			outputChannel.appendLine(`Main server - stderr: ${data}`);
-		});
-		childProcess.on('close', (code) => {
-			console.log(`Main server - child process exited with code ${code}`);
-			outputChannel.appendLine(`Main server process exited with code ${code}`);
-		});
+		// childProcess.stdout.on('data', (data) => {
+		// 	statusBarItem.show();
+		// 	console.log(`Main server - stdout: ${data}`);
+		// 	outputChannel.appendLine(`Main server - stdout: ${data}`);
+		// });
+		// childProcess.stderr.on('data', (data) => {
+		// 	console.error(`Main server - stderr: ${data}`);
+		// 	outputChannel.appendLine(`Main server - stderr: ${data}`);
+		// });
+		// childProcess.on('close', (code) => {
+		// 	console.log(`Main server - child process exited with code ${code}`);
+		// 	outputChannel.appendLine(`Main server process exited with code ${code}`);
+		// });
 	}
 
 	return childProcess;

@@ -68,5 +68,5 @@ export async function findKarmaTestsAndSuites(file: vscode.Uri) {
 		root.children = [];
 	}
 
-	return root;
+	return [root];
 }
