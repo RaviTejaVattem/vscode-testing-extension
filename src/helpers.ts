@@ -1,124 +1,257 @@
+import { exec, spawn } from 'child_process';
+import fs from 'fs';
+import * as http from 'http';
+import { Server } from 'socket.io';
+import { DefaultEventsMap } from 'socket.io/dist/typed-events';
 import {
+	debug,
+	OutputChannel,
 	Range,
 	TestController,
 	TestItem,
 	TestRun,
+	TestRunRequest,
 	Uri,
+	window,
 	workspace
 } from 'vscode';
+import { ApplicationConstants, KarmaEventName } from './constants';
 import { IParsedNode } from './types';
-import { spawn } from 'child_process';
-import { read } from 'fs';
-import path from 'path';
-import { dir } from 'console';
-import * as karma from './karma-test';
-import { spawnSync } from 'child_process';
 
-// const nestedSuite = controller.createTestItem(
-// 	'neested',
-// 	'Nested Suite',
-// 	undefined
-// );
-// nestedSuite.children.replace([
-// 	controller.createTestItem('test1', 'Test #1'),
-// 	controller.createTestItem('test2', 'Test #2')
-// ]);
-// const test3 = controller.createTestItem('test3', 'Test #3');
-// const test4 = controller.createTestItem('test4', 'Test #4');
+const statusBarItem = window.createStatusBarItem();
+const testItems = new Map<string, TestItem>();
 
-// return [nestedSuite, test3, test4];
+let ports: number[];
+let randomString: string;
+let outputChannel: OutputChannel = window.createOutputChannel(
+	'Karma test - extension logs'
+);
 
-// fileData: IParsedNode = {};
+export const getRandomString = () => {
+	if (!randomString) {
+		randomString = Math.random().toString(36).slice(2);
+	}
+	return randomString;
+};
 
-// {
-// 	fn: string;
-// 	name: string;
-// 	location: {
-// 		source?: string | null | undefined;
-// 		start: Position;
-// 		end: Position;
-// 	};
-// 	children: IParsedNode[];
-// };
+const startDebugSession = async () => {
+	const debugConfig = {
+		name: 'Karma Test Explorer Debugging',
+		type: 'chrome',
+		request: 'attach',
+		browserAttachLocation: 'workspace',
+		address: 'localhost',
+		port: ports[1],
+		timeout: 60000
+	};
+
+	const debugSession = await debug.startDebugging(undefined, debugConfig);
+	if (debugSession) {
+		console.log('Debugger started successfully');
+	} else {
+		console.error('Failed to start debugger');
+	}
+};
+
+function setRange(testItem: TestItem, nodeDetails: IParsedNode) {
+	if (nodeDetails.location) {
+		testItem.range = new Range(
+			nodeDetails.location.start.line,
+			nodeDetails.location.start.column,
+			nodeDetails.location.end.line,
+			nodeDetails.location.end.column
+		);
+	}
+}
 
 export async function addTests(
 	controller: TestController,
 	tests: IParsedNode,
-	file: Uri
+	file: Uri,
+	parentName?: string
 ) {
-	let root = controller.createTestItem(tests.name, tests.name, file);
+	let name = parentName ?? tests.name;
+	let root = controller.createTestItem(name, tests.name, file);
+	setRange(root, tests);
+	outputChannel.appendLine(
+		`Created root test item: ${tests.name} with testId: ${root.id}`
+	);
 	tests.children.forEach(async (children) => {
-		root.children.add(await addTests(controller, children, file));
+		const childNode = await addTests(
+			controller,
+			children,
+			file,
+			`${name} ${children.name}`
+		);
+		testItems.set(childNode.id, childNode);
+		setRange(childNode, children);
+		root.children.add(childNode);
+		outputChannel.appendLine(`Added child test item: ${children.name}`);
 	});
 	return root;
 }
 
-export function spawnAProcess() {
+export function spawnAProcess(filePath: string, availablePorts: number[]) {
+	ports = availablePorts;
+	statusBarItem.text = `✔️ ${ports[0]}`;
+	statusBarItem.tooltip = `Karma is running on port: ${ports[0]}`;
+	console.log('<--------> ~ ports:', ports);
+
 	let childProcess;
 	let wsFolders = workspace?.workspaceFolders;
 
 	if (wsFolders && wsFolders.length > 0) {
 		process.chdir(wsFolders[0].uri.fsPath);
-		childProcess = spawn('npx', [
-			'ng',
-			'test',
-			'--karma-config=karma.conf.js',
-			'--code-coverage',
-			'--progress'
-		]);
-		childProcess.stdout.on('data', (data) => {
-			console.log(`Main server - stdout: ${data}`);
-		});
-		childProcess.stderr.on('data', (data) => {
-			console.error(`Main server - stderr: ${data}`);
-		});
-		childProcess.on('close', (code) => {
-			console.log(`Main server - child process exited with code ${code}`);
-		});
+		outputChannel.appendLine(
+			`Changed directory to: ${wsFolders[0].uri.fsPath}`
+		);
+
+		childProcess = spawn(
+			'npx',
+			['ng', 'test', `--karma-config=${filePath}`, '--code-coverage'],
+			{
+				env: {
+					...process.env,
+					[ApplicationConstants.KarmaPort]: `${ports[0]}`,
+					[ApplicationConstants.KarmaDebugPort]: `${ports[1]}`,
+					[ApplicationConstants.KarmaSocketPort]: `${ports[2]}`,
+					[ApplicationConstants.KarmaCoverageDir]: getRandomString()
+				}
+			}
+		);
+		// childProcess.stdout.on('data', (data) => {
+		// 	statusBarItem.show();
+		// 	console.log(`Main server - stdout: ${data}`);
+		// 	outputChannel.appendLine(`Main server - stdout: ${data}`);
+		// });
+		// childProcess.stderr.on('data', (data) => {
+		// 	console.error(`Main server - stderr: ${data}`);
+		// 	outputChannel.appendLine(`Main server - stderr: ${data}`);
+		// });
+		// childProcess.on('close', (code) => {
+		// 	console.log(`Main server - child process exited with code ${code}`);
+		// 	outputChannel.appendLine(`Main server process exited with code ${code}`);
+		// });
 	}
 
 	return childProcess;
 }
 
-export async function testExecution(node: TestItem, run: TestRun) {
-	let childProcess;
-	let wsFolders = workspace?.workspaceFolders;
-
-	if (node.parent && wsFolders && wsFolders.length > 0) {
-		const testName = `${node.parent.id} ${node.id}`;
-		process.chdir(wsFolders[0].uri.fsPath);
-		const result = spawnSync('npx', [
-			'karma',
-			'run',
-			'--port 9876',
-			'--',
-			`--grep=${testName}`,
-			'--progress=true',
-			'--no-watch'
-		]);
-
-		if (result.error) {
-			console.error(`Test server - error: ${result.error.message}`);
-		}
-
-		if (result.stdout) {
-			console.log(`Test server - stdout: ${result.stdout}`);
-		}
-
-		if (result.stderr) {
-			console.log(`Test server - stderr: ${result.stderr}`);
-		}
-
-		if (result.status === 0) {
-			run.passed(node);
-		} else {
-			run.failed(node, {
-				message: 'test failed'
-			});
-		}
-
-		console.log(
-			`Test server - child process exited with code ${result.status}`
-		);
+export async function testExecution(
+	node: TestItem | undefined,
+	run: TestRun,
+	isDebugRun: boolean = false
+) {
+	if (isDebugRun) {
+		await startDebugSession();
 	}
+	let requestBody = {};
+	if (node) {
+		let testName = node.parent
+			? `${node.parent.label} ${node.label}`
+			: `${node.label}`;
+
+		requestBody = {
+			args: [`--testRunId=${node.id}`, `--grep=${testName}`],
+			refresh: true
+		};
+	}
+
+	const options = {
+		hostname: 'localhost',
+		path: '/run',
+		port: ports[0],
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' }
+	};
+
+	const request = http.request(options, (responseMessage) => {
+		let data = '';
+
+		responseMessage.on('end', () => {
+			try {
+				console.log('>>> execution end:', data);
+			} catch (error) {
+				console.error('Error parsing JSON:', error);
+			} finally {
+				run.end();
+			}
+		});
+	});
+
+	request.write(JSON.stringify(requestBody));
+	request.end();
+
+	return request;
+}
+
+export function listenToTestResults(
+	server: Server<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, any>,
+	controller: TestController
+) {
+	let run: TestRun;
+
+	server.on(KarmaEventName.Connect, (socket) => {
+		console.log('Connected to server');
+		statusBarItem.show();
+		socket.on(KarmaEventName.RunStart, () => {
+			console.log('On run start');
+			run = controller.createTestRun(
+				new TestRunRequest(),
+				'testRunRequest',
+				true
+			);
+		});
+
+		socket.on(KarmaEventName.RunComplete, () => {
+			console.log('On run complete');
+			run.end();
+			debug.stopDebugging();
+			console.log('Debugger stopped successfully');
+		});
+
+		socket.on(KarmaEventName.SpecComplete, (result: any) => {
+			const testItem = testItems.get(result.fullName);
+			if (!testItem) {
+				console.error('Test item not found:', result.fullName);
+				return;
+			}
+
+			if (result.skipped) {
+				run.skipped(testItem);
+			} else if (result.success) {
+				run.passed(testItem);
+			} else {
+				run.failed(testItem, { message: result.log.join('') });
+			}
+		});
+	});
+}
+
+export const deleteCoverageDir = (directory: string) => {
+	if (fs.existsSync(directory)) {
+		fs.rmSync(directory, { recursive: true });
+	}
+};
+
+export function freePort(port: number) {
+	exec(`lsof -i :${port} -t`, (err, stdout, stderr) => {
+		if (err) {
+			console.error(`Cannot find ${port}: ${stderr}`);
+			return;
+		}
+
+		const pid = stdout.trim();
+		if (pid) {
+			exec(`kill -9 ${pid}`, (killErr, killStdout, killStderr) => {
+				if (killErr) {
+					console.error(`Error killing process ${pid}: ${killStderr}`);
+				} else {
+					console.log(`Killed process ${pid} using port ${port}`);
+				}
+			});
+		} else {
+			console.log(`No process found on port ${port}.`);
+		}
+	});
 }

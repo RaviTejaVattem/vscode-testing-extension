@@ -1,0 +1,8 @@
+onRunStart: Called before the test run starts.
+onRunComplete: Called after the test run completes.
+onBrowserStart: Called when a browser starts.
+onBrowserComplete: Called when a browser completes.
+onSpecComplete: Called when a spec (test) completes.
+specSuccess: Called when a spec succeeds.
+specFailure: Called when a spec fails.
+specSkipped: Called when a spec is skipped.
