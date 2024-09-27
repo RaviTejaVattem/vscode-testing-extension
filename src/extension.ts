@@ -7,7 +7,7 @@ import { Server } from 'socket.io';
 import * as vscode from 'vscode';
 import {
 	addTests,
-	deleteCoverageDir as deleteDirectory,
+	deleteCoverageDir,
 	freePort,
 	getRandomString,
 	listenToTestResults,
@@ -19,7 +19,6 @@ import { runTestCoverage, runTests } from './test-runner';
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export const coverageContext = new IstanbulCoverageContext();
-let extensionContext: vscode.ExtensionContext;
 let availablePorts: number[] = [];
 
 export function activate(context: vscode.ExtensionContext) {
@@ -30,7 +29,12 @@ export function activate(context: vscode.ExtensionContext) {
 		'helloWorldTests',
 		'Hello World Tests'
 	);
-	extensionContext = context;
+
+	const coverageFolderPath = path.join(
+		context.extensionPath,
+		'/dist/coverage/',
+		getRandomString()
+	);
 
 	portfinder.getPorts(3, { port: 3000 }, (err, ports) => {
 		if (err) {
@@ -54,6 +58,7 @@ export function activate(context: vscode.ExtensionContext) {
 					server.close();
 					console.log('Server closed');
 				}
+				deleteCoverageDir(coverageFolderPath);
 			}
 		});
 	}
@@ -79,7 +84,7 @@ export function activate(context: vscode.ExtensionContext) {
 		'Coverage',
 		vscode.TestRunProfileKind.Coverage,
 		(request, token) =>
-			runTestCoverage(controller, request, context, coverageContext),
+			runTestCoverage(controller, request, coverageContext, coverageFolderPath),
 		false
 	);
 
@@ -129,12 +134,6 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
-	const folderName = path.join(
-		extensionContext.extensionPath,
-		'/dist/coverage/',
-		getRandomString()
-	);
-	deleteDirectory(folderName);
 	freePort(availablePorts[0]);
 	freePort(availablePorts[1]);
 	console.log('Deactivated');

@@ -18,11 +18,14 @@ import {
 import { ApplicationConstants, KarmaEventName } from './constants';
 import { IParsedNode } from './types';
 
-let ports: number[];
-
 const statusBarItem = window.createStatusBarItem();
+const testItems = new Map<string, TestItem>();
 
+let ports: number[];
 let randomString: string;
+let outputChannel: OutputChannel = window.createOutputChannel(
+	'Karma test - extension logs'
+);
 
 export const getRandomString = () => {
 	if (!randomString) {
@@ -31,11 +34,24 @@ export const getRandomString = () => {
 	return randomString;
 };
 
-let outputChannel: OutputChannel = window.createOutputChannel(
-	'Ravi angular - Extension Logs'
-);
+const startDebugSession = async () => {
+	const debugConfig = {
+		name: 'Karma Test Explorer Debugging',
+		type: 'chrome',
+		request: 'attach',
+		browserAttachLocation: 'workspace',
+		address: 'localhost',
+		port: ports[1],
+		timeout: 60000
+	};
 
-const testItems = new Map<string, TestItem>();
+	const debugSession = await debug.startDebugging(undefined, debugConfig);
+	if (debugSession) {
+		console.log('Debugger started successfully');
+	} else {
+		console.error('Failed to start debugger');
+	}
+};
 
 function setRange(testItem: TestItem, nodeDetails: IParsedNode) {
 	if (nodeDetails.location) {
@@ -77,7 +93,7 @@ export async function addTests(
 
 export function spawnAProcess(filePath: string, availablePorts: number[]) {
 	ports = availablePorts;
-	statusBarItem.text = `${ports[0]}`;
+	statusBarItem.text = `✔️ ${ports[0]}`;
 	statusBarItem.tooltip = `Karma is running on port: ${ports[0]}`;
 	console.log('<--------> ~ ports:', ports);
 
@@ -89,12 +105,7 @@ export function spawnAProcess(filePath: string, availablePorts: number[]) {
 		outputChannel.appendLine(
 			`Changed directory to: ${wsFolders[0].uri.fsPath}`
 		);
-		// childProcess =exec(`npx ng test --karma-config=${filePath} --code-coverage --progress`, (e, stdout, stderr)=> {
-		// 	if (e instanceof Error) {
-		// 		console.error(e);
-		// 		throw e;
-		// 	}
-		// });
+
 		childProcess = spawn(
 			'npx',
 			['ng', 'test', `--karma-config=${filePath}`, '--code-coverage'],
@@ -126,24 +137,14 @@ export function spawnAProcess(filePath: string, availablePorts: number[]) {
 	return childProcess;
 }
 
-export async function testExecution(node: TestItem | undefined, run: TestRun) {
-	const debugConfig = {
-		name: 'Karma Test Explorer Debugging',
-		type: 'chrome',
-		request: 'attach',
-		browserAttachLocation: 'workspace',
-		address: 'localhost',
-		port: ports[1],
-		timeout: 60000
-	};
-
-	const debugSession = await debug.startDebugging(undefined, debugConfig);
-	if (debugSession) {
-		console.log('Debugger started successfully');
-	} else {
-		console.error('Failed to start debugger');
+export async function testExecution(
+	node: TestItem | undefined,
+	run: TestRun,
+	isDebugRun: boolean = false
+) {
+	if (isDebugRun) {
+		await startDebugSession();
 	}
-
 	let requestBody = {};
 	if (node) {
 		let testName = node.parent
@@ -154,11 +155,7 @@ export async function testExecution(node: TestItem | undefined, run: TestRun) {
 			args: [`--testRunId=${node.id}`, `--grep=${testName}`],
 			refresh: true
 		};
-		console.log('<--------> ~ testExecution ~ testName:', testName);
-		console.log('<--------> ~ testExecution ~ node.id:', node.id);
 	}
-
-	console.log('<--------> ~ testExecution ~ port:', ports);
 
 	const options = {
 		hostname: 'localhost',
@@ -194,8 +191,9 @@ export function listenToTestResults(
 ) {
 	let run: TestRun;
 
-	server.on('connect', (socket) => {
+	server.on(KarmaEventName.Connect, (socket) => {
 		console.log('Connected to server');
+		statusBarItem.show();
 		socket.on(KarmaEventName.RunStart, () => {
 			console.log('On run start');
 			run = controller.createTestRun(
@@ -232,30 +230,28 @@ export function listenToTestResults(
 
 export const deleteCoverageDir = (directory: string) => {
 	if (fs.existsSync(directory)) {
-		fs.rmdirSync(directory, { recursive: true });
+		fs.rmSync(directory, { recursive: true });
 	}
 };
 
 export function freePort(port: number) {
-	// Find the process using the port
 	exec(`lsof -i :${port} -t`, (err, stdout, stderr) => {
 		if (err) {
-			console.error(`Error finding process using port ${port}: ${stderr}`);
+			console.error(`Cannot find ${port}: ${stderr}`);
 			return;
 		}
 
 		const pid = stdout.trim();
 		if (pid) {
-			// Kill the process using the PID
 			exec(`kill -9 ${pid}`, (killErr, killStdout, killStderr) => {
 				if (killErr) {
 					console.error(`Error killing process ${pid}: ${killStderr}`);
 				} else {
-					console.log(`Process ${pid} using port ${port} has been killed.`);
+					console.log(`Killed process ${pid} using port ${port}`);
 				}
 			});
 		} else {
-			console.log(`No process found using port ${port}.`);
+			console.log(`No process found on port ${port}.`);
 		}
 	});
 }

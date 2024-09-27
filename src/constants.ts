@@ -1,4 +1,5 @@
 export enum KarmaEventName {
+	Connect = 'connect',
 	Listening = 'listening',
 	Exit = 'exit',
 
