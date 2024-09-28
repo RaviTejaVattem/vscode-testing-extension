@@ -34,6 +34,10 @@ export const getRandomString = () => {
 	return randomString;
 };
 
+export const writeToChannel = (message: string, options: any = '') => {
+	outputChannel.appendLine(message + JSON.stringify(options, null, 2));
+};
+
 const startDebugSession = async () => {
 	const debugConfig = {
 		name: 'Karma Test Explorer Debugging',
@@ -47,7 +51,7 @@ const startDebugSession = async () => {
 
 	const debugSession = await debug.startDebugging(undefined, debugConfig);
 	if (debugSession) {
-		console.log('Debugger started successfully');
+		writeToChannel('Debugger started successfully');
 	} else {
 		console.error('Failed to start debugger');
 	}
@@ -73,9 +77,6 @@ export async function addTests(
 	let name = parentName ?? tests.name;
 	let root = controller.createTestItem(name, tests.name, file);
 	setRange(root, tests);
-	outputChannel.appendLine(
-		`Created root test item: ${tests.name} with testId: ${root.id}`
-	);
 	tests.children.forEach(async (children) => {
 		const childNode = await addTests(
 			controller,
@@ -86,7 +87,6 @@ export async function addTests(
 		testItems.set(childNode.id, childNode);
 		setRange(childNode, children);
 		root.children.add(childNode);
-		outputChannel.appendLine(`Added child test item: ${children.name}`);
 	});
 	return root;
 }
@@ -95,16 +95,14 @@ export function spawnAProcess(filePath: string, availablePorts: number[]) {
 	ports = availablePorts;
 	statusBarItem.text = `✔️ ${ports[0]}`;
 	statusBarItem.tooltip = `Karma is running on port: ${ports[0]}`;
-	console.log('<--------> ~ ports:', ports);
+	writeToChannel('<--------> ~ ports:', ports);
 
 	let childProcess;
 	let wsFolders = workspace?.workspaceFolders;
 
 	if (wsFolders && wsFolders.length > 0) {
 		process.chdir(wsFolders[0].uri.fsPath);
-		outputChannel.appendLine(
-			`Changed directory to: ${wsFolders[0].uri.fsPath}`
-		);
+		writeToChannel('Changed directory to: ', wsFolders[0].uri.fsPath);
 
 		childProcess = spawn(
 			'npx',
@@ -119,19 +117,19 @@ export function spawnAProcess(filePath: string, availablePorts: number[]) {
 				}
 			}
 		);
-		// childProcess.stdout.on('data', (data) => {
-		// 	statusBarItem.show();
-		// 	console.log(`Main server - stdout: ${data}`);
-		// 	outputChannel.appendLine(`Main server - stdout: ${data}`);
-		// });
-		// childProcess.stderr.on('data', (data) => {
-		// 	console.error(`Main server - stderr: ${data}`);
-		// 	outputChannel.appendLine(`Main server - stderr: ${data}`);
-		// });
-		// childProcess.on('close', (code) => {
-		// 	console.log(`Main server - child process exited with code ${code}`);
-		// 	outputChannel.appendLine(`Main server process exited with code ${code}`);
-		// });
+		childProcess.stdout.on('data', (data) => {
+			writeToChannel('Main server - stdout: ', data.toString());
+			// outputChannel.appendLine(`Main server - stdout: ${data}`);
+		});
+		childProcess.stderr.on('data', (data) => {
+			writeToChannel('Main server - stderr: ', data.toString());
+
+			// outputChannel.appendLine(`Main server - stderr: ${data}`);
+		});
+		childProcess.on('close', (code) => {
+			writeToChannel('Main server - child process exited with code ' + code);
+			// outputChannel.appendLine(`Main server process exited with code ${code}`);
+		});
 	}
 
 	return childProcess;
@@ -170,7 +168,7 @@ export async function testExecution(
 
 		responseMessage.on('end', () => {
 			try {
-				console.log('>>> execution end:', data);
+				writeToChannel('>>> execution end:', data);
 			} catch (error) {
 				console.error('Error parsing JSON:', error);
 			} finally {
@@ -192,10 +190,10 @@ export function listenToTestResults(
 	let run: TestRun;
 
 	server.on(KarmaEventName.Connect, (socket) => {
-		console.log('Connected to server');
+		writeToChannel('Connected to server');
 		statusBarItem.show();
 		socket.on(KarmaEventName.RunStart, () => {
-			console.log('On run start');
+			writeToChannel('On run start');
 			run = controller.createTestRun(
 				new TestRunRequest(),
 				'testRunRequest',
@@ -204,10 +202,10 @@ export function listenToTestResults(
 		});
 
 		socket.on(KarmaEventName.RunComplete, () => {
-			console.log('On run complete');
+			writeToChannel('On run complete');
 			run.end();
 			debug.stopDebugging();
-			console.log('Debugger stopped successfully');
+			writeToChannel('Debugger stopped successfully');
 		});
 
 		socket.on(KarmaEventName.SpecComplete, (result: any) => {
@@ -247,11 +245,11 @@ export function freePort(port: number) {
 				if (killErr) {
 					console.error(`Error killing process ${pid}: ${killStderr}`);
 				} else {
-					console.log(`Killed process ${pid} using port ${port}`);
+					writeToChannel('Killed process ' + pid + ' using port ' + port);
 				}
 			});
 		} else {
-			console.log(`No process found on port ${port}.`);
+			writeToChannel('No process found on port ' + port);
 		}
 	});
 }

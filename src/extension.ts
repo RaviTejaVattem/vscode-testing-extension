@@ -11,7 +11,8 @@ import {
 	freePort,
 	getRandomString,
 	listenToTestResults,
-	spawnAProcess
+	spawnAProcess,
+	writeToChannel
 } from './helpers';
 import { findKarmaTestsAndSuites } from './parser';
 import { runTestCoverage, runTests } from './test-runner';
@@ -38,7 +39,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	portfinder.getPorts(3, { port: 3000 }, (err, ports) => {
 		if (err) {
-			console.log(err);
+			writeToChannel('Error while finding ports: ', err);
 			return;
 		}
 		initialize(ports);
@@ -46,8 +47,11 @@ export function activate(context: vscode.ExtensionContext) {
 
 	function initialize(ports: number[]) {
 		availablePorts = ports;
-		console.log('Karma server starting on: ', availablePorts);
-		spawnAProcess(context.extensionPath + '/dist/karma.conf.js', ports);
+		writeToChannel('Karma server starting on: ', availablePorts);
+		const childProcess = spawnAProcess(
+			context.extensionPath + '/dist/karma.conf.js',
+			ports
+		);
 
 		const server = new Server(availablePorts[2]);
 		listenToTestResults(server, controller);
@@ -56,15 +60,16 @@ export function activate(context: vscode.ExtensionContext) {
 			dispose: () => {
 				if (server) {
 					server.close();
-					console.log('Server closed');
+					writeToChannel('Server closed');
 				}
 				deleteCoverageDir(coverageFolderPath);
+				childProcess?.kill();
 			}
 		});
 	}
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
+	// Use the console to output diagnostic information (writeToChannel) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
-	console.log(
+	writeToChannel(
 		'Congratulations, your extension "coverage-gutters" is now active!'
 	);
 
@@ -136,5 +141,5 @@ export function activate(context: vscode.ExtensionContext) {
 export function deactivate() {
 	freePort(availablePorts[0]);
 	freePort(availablePorts[1]);
-	console.log('Deactivated');
+	writeToChannel('Deactivated');
 }
