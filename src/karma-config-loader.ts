@@ -43,20 +43,17 @@ export class KarmaConfigLoader {
 		config.browserSocketTimeout = 30_000;
 		config.processKillTimeout = 2000;
 		config.retryLimit = 3;
-		// proxies: {
-		// 	'/home/quote-policy/src/assets/': '/src/assets/'
-		// }
 		config.customLaunchers = {
 			MyChromeHeadless: {
 				base: 'ChromeHeadless',
 				flags: [
+					'--disable-gpu',
+					'--disable-dev-shm-usage',
 					`--remote-debugging-port=${
 						process.env[ApplicationConstants.KarmaDebugPort]
 					}`
 				]
 			}
 		};
-
-		// return test;
 	}
 }

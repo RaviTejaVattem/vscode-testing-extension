@@ -51,6 +51,7 @@ export function activate(context: vscode.ExtensionContext) {
 			context.extensionPath + '/dist/karma.conf.js',
 			ports
 		);
+		writeToChannel('Karma childprocess id ', childProcess?.pid);
 
 		const server = new Server(availablePorts[2]);
 		listenToTestResults(server, controller);
