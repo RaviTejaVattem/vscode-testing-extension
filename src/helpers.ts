@@ -105,15 +105,6 @@ export function spawnAProcess(filePath: string, availablePorts: number[]) {
 		const workspacePath = wsFolders[0].uri.fsPath;
 		writeToChannel('Changed directory to: ', workspacePath);
 
-		const angularJsonContent = fs.readFileSync(
-			join(workspacePath, 'angular.json'),
-			'utf-8'
-		);
-		const projectNameInAngularJson = Object.keys(
-			JSON.parse(angularJsonContent).projects
-		)[0];
-		writeToChannel('Angular json project name: ', projectNameInAngularJson);
-
 		let processArgs = [
 			`${workspacePath}/node_modules/@angular/cli/bin/ng`,
 			'test',
@@ -121,10 +112,6 @@ export function spawnAProcess(filePath: string, availablePorts: number[]) {
 			'--code-coverage',
 			'--progress=false'
 		];
-
-		if (projectNameInAngularJson) {
-			processArgs.splice(2, 0, `--project=${projectNameInAngularJson}`);
-		}
 
 		const processEnv = {
 			...process.env,
