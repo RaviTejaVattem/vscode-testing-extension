@@ -60,6 +60,7 @@ export function activate(context: vscode.ExtensionContext) {
 			dispose: () => {
 				childProcess?.kill('SIGKILL');
 				if (server) {
+					server.removeAllListeners();
 					server.close();
 					writeToChannel('Server closed');
 				}
@@ -73,13 +74,13 @@ export function activate(context: vscode.ExtensionContext) {
 		'Congratulations, your extension "coverage-gutters" is now active!'
 	);
 
-	const runProfile = controller.createRunProfile(
+	controller.createRunProfile(
 		'Run',
 		vscode.TestRunProfileKind.Run,
 		(request, token) => runTests(controller, request, token),
 		true
 	);
-	const debugProfile = controller.createRunProfile(
+	controller.createRunProfile(
 		'Debug',
 		vscode.TestRunProfileKind.Debug,
 		(request, token) => runTests(controller, request, token, true),

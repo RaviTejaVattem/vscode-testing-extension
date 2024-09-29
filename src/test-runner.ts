@@ -91,7 +91,6 @@ async function runNode(
 	run.end();
 }
 
-// Small helper that works like "array.map" for children of a test collection
 const mapTestItems = <T>(
 	items: vscode.TestItemCollection,
 	mapper: (t: vscode.TestItem) => T
