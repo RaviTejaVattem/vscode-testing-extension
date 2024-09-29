@@ -32,7 +32,6 @@ export class KarmaConfigLoader {
 		};
 		config.reporters = ['progress', 'kjhtml', 'custom'];
 		config.port = process.env[ApplicationConstants.KarmaPort];
-		console.log('<--------> ~ port inside config:', config.port);
 		config.logLevel = config.LOG_INFO;
 		config.autoWatch = false;
 		config.browsers = ['MyChromeHeadless'];

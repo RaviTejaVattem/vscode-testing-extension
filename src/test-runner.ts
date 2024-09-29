@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import { IstanbulCoverageContext } from 'istanbul-to-vscode';
 import path from 'path';
 import * as vscode from 'vscode';
-import { testExecution } from './helpers';
+import { testExecution, writeToChannel } from './helpers';
 
 const loopAndRunTests = async (
 	run: vscode.TestRun,
@@ -53,7 +53,7 @@ export async function runTestCoverage(
 		if (fs.existsSync(filePath)) {
 			await context.apply(run, coverageFolderPath);
 		} else {
-			console.log('No coverage found, re-run the tests');
+			writeToChannel('No coverage found, re-run the tests');
 		}
 	}
 	run.end();

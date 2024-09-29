@@ -13,7 +13,6 @@ export function KarmaCustomReporter(
 	const worker = new Worker(workerScriptFile);
 
 	this.onRunStart = (browsers: any, results: any) => {
-		console.log('<--------> ~ results: onRunStart');
 		this._browsers = [];
 		worker.postMessage({ key: KarmaEventName.RunStart });
 	};
