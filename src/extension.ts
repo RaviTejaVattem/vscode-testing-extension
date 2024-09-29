@@ -8,7 +8,6 @@ import * as vscode from 'vscode';
 import {
 	addTests,
 	deleteCoverageDir,
-	freePort,
 	getRandomString,
 	listenToTestResults,
 	spawnAProcess,
@@ -58,12 +57,12 @@ export function activate(context: vscode.ExtensionContext) {
 
 		context.subscriptions.push({
 			dispose: () => {
+				childProcess?.kill('SIGKILL');
 				if (server) {
 					server.close();
 					writeToChannel('Server closed');
 				}
 				deleteCoverageDir(coverageFolderPath);
-				childProcess?.kill();
 			}
 		});
 	}
@@ -139,7 +138,5 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 export function deactivate() {
-	freePort(availablePorts[0]);
-	freePort(availablePorts[1]);
 	writeToChannel('Deactivated');
 }

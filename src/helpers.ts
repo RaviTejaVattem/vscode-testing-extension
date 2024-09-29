@@ -1,6 +1,7 @@
-import { exec, spawn } from 'child_process';
+import { spawn } from 'child_process';
 import fs from 'fs';
 import * as http from 'http';
+import { join } from 'path';
 import { Server } from 'socket.io';
 import { DefaultEventsMap } from 'socket.io/dist/typed-events';
 import {
@@ -101,34 +102,51 @@ export function spawnAProcess(filePath: string, availablePorts: number[]) {
 	let wsFolders = workspace?.workspaceFolders;
 
 	if (wsFolders && wsFolders.length > 0) {
-		process.chdir(wsFolders[0].uri.fsPath);
-		writeToChannel('Changed directory to: ', wsFolders[0].uri.fsPath);
+		const workspacePath = wsFolders[0].uri.fsPath;
+		writeToChannel('Changed directory to: ', workspacePath);
 
-		childProcess = spawn(
-			'npx',
-			['ng', 'test', `--karma-config=${filePath}`, '--code-coverage'],
-			{
-				env: {
-					...process.env,
-					[ApplicationConstants.KarmaPort]: `${ports[0]}`,
-					[ApplicationConstants.KarmaDebugPort]: `${ports[1]}`,
-					[ApplicationConstants.KarmaSocketPort]: `${ports[2]}`,
-					[ApplicationConstants.KarmaCoverageDir]: getRandomString()
-				}
-			}
+		const angularJsonContent = fs.readFileSync(
+			join(workspacePath, 'angular.json'),
+			'utf-8'
 		);
+		const projectNameInAngularJson = Object.keys(
+			JSON.parse(angularJsonContent).projects
+		)[0];
+		writeToChannel('Angular json project name: ', projectNameInAngularJson);
+
+		let processArgs = [
+			`${workspacePath}/node_modules/@angular/cli/bin/ng`,
+			'test',
+			`--karma-config=${filePath}`,
+			'--code-coverage',
+			'--progress=false'
+		];
+
+		if (projectNameInAngularJson) {
+			processArgs.splice(2, 0, `--project=${projectNameInAngularJson}`);
+		}
+
+		const processEnv = {
+			...process.env,
+			[ApplicationConstants.KarmaPort]: `${ports[0]}`,
+			[ApplicationConstants.KarmaDebugPort]: `${ports[1]}`,
+			[ApplicationConstants.KarmaSocketPort]: `${ports[2]}`,
+			[ApplicationConstants.KarmaCoverageDir]: getRandomString()
+		};
+
+		childProcess = spawn('node', processArgs, {
+			env: processEnv,
+			shell: false,
+			cwd: workspacePath
+		});
 		childProcess.stdout.on('data', (data) => {
 			writeToChannel('Main server - stdout: ', data.toString());
-			// outputChannel.appendLine(`Main server - stdout: ${data}`);
 		});
 		childProcess.stderr.on('data', (data) => {
 			writeToChannel('Main server - stderr: ', data.toString());
-
-			// outputChannel.appendLine(`Main server - stderr: ${data}`);
 		});
 		childProcess.on('close', (code) => {
 			writeToChannel('Main server - child process exited with code ' + code);
-			// outputChannel.appendLine(`Main server process exited with code ${code}`);
 		});
 	}
 
@@ -231,25 +249,3 @@ export const deleteCoverageDir = (directory: string) => {
 		fs.rmSync(directory, { recursive: true });
 	}
 };
-
-export function freePort(port: number) {
-	exec(`lsof -i :${port} -t`, (err, stdout, stderr) => {
-		if (err) {
-			console.error(`Cannot find ${port}: ${stderr}`);
-			return;
-		}
-
-		const pid = stdout.trim();
-		if (pid) {
-			exec(`kill -9 ${pid}`, (killErr, killStdout, killStderr) => {
-				if (killErr) {
-					console.error(`Error killing process ${pid}: ${killStderr}`);
-				} else {
-					writeToChannel('Killed process ' + pid + ' using port ' + port);
-				}
-			});
-		} else {
-			writeToChannel('No process found on port ' + port);
-		}
-	});
-}
