@@ -53,6 +53,8 @@ export function activate(context: vscode.ExtensionContext) {
 		);
 		writeToChannel('Karma childprocess id ', childProcess?.pid);
 
+		process.stdin.on('close', () => childProcess?.kill('SIGKILL'));
+
 		const server = new Server(availablePorts[2]);
 		listenToTestResults(server, controller);
 
@@ -126,17 +128,6 @@ export function activate(context: vscode.ExtensionContext) {
 			});
 		});
 	}
-
-	let disposable = vscode.commands.registerCommand(
-		'coverage-gutters.helloWorld',
-		() => {
-			vscode.window.showInformationMessage(
-				'Hello World from coverage-gutters!'
-			);
-		}
-	);
-
-	context.subscriptions.push(disposable);
 }
 
 export function deactivate() {
