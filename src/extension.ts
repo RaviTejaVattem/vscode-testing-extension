@@ -30,8 +30,6 @@ export function activate(context: vscode.ExtensionContext) {
 		'Hello World Tests'
 	);
 
-	console.log('>>>>>>>>>>>>>>>>>', process.pid);
-
 	const coverageFolderPath = path.join(
 		context.extensionPath,
 		'/dist/coverage/',
@@ -130,17 +128,6 @@ export function activate(context: vscode.ExtensionContext) {
 			});
 		});
 	}
-
-	let disposable = vscode.commands.registerCommand(
-		'coverage-gutters.helloWorld',
-		() => {
-			vscode.window.showInformationMessage(
-				'Hello World from coverage-gutters!'
-			);
-		}
-	);
-
-	context.subscriptions.push(disposable);
 }
 
 export function deactivate() {
