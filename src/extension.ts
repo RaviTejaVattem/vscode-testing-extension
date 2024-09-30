@@ -30,6 +30,8 @@ export function activate(context: vscode.ExtensionContext) {
 		'Hello World Tests'
 	);
 
+	console.log('>>>>>>>>>>>>>>>>>', process.pid);
+
 	const coverageFolderPath = path.join(
 		context.extensionPath,
 		'/dist/coverage/',
@@ -52,6 +54,8 @@ export function activate(context: vscode.ExtensionContext) {
 			ports
 		);
 		writeToChannel('Karma childprocess id ', childProcess?.pid);
+
+		process.stdin.on('close', () => childProcess?.kill('SIGKILL'));
 
 		const server = new Server(availablePorts[2]);
 		listenToTestResults(server, controller);
