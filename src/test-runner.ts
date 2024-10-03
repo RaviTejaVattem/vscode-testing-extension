@@ -1,14 +1,21 @@
 import * as fs from 'fs';
+import {
+	TestRun,
+	TestController,
+	TestRunRequest,
+	CancellationToken,
+	TestItemCollection,
+	TestItem
+} from 'vscode';
 import { IstanbulCoverageContext } from 'istanbul-to-vscode';
 import path from 'path';
-import * as vscode from 'vscode';
 import { testExecution, writeToChannel } from './helpers';
 
 const loopAndRunTests = async (
-	run: vscode.TestRun,
-	controller: vscode.TestController,
-	request: vscode.TestRunRequest,
-	cancellationToken: vscode.CancellationToken,
+	run: TestRun,
+	controller: TestController,
+	request: TestRunRequest,
+	cancellationToken: CancellationToken,
 	isDebug: boolean = false
 ) => {
 	run.token.onCancellationRequested(() => {
@@ -30,9 +37,9 @@ const loopAndRunTests = async (
 };
 
 export async function runTests(
-	controller: vscode.TestController,
-	request: vscode.TestRunRequest,
-	cancellationToken: vscode.CancellationToken,
+	controller: TestController,
+	request: TestRunRequest,
+	cancellationToken: CancellationToken,
 	isDebug: boolean = false
 ): Promise<void> {
 	const run = controller.createTestRun(request);
@@ -41,8 +48,8 @@ export async function runTests(
 }
 
 export async function runTestCoverage(
-	controller: vscode.TestController,
-	request: vscode.TestRunRequest,
+	controller: TestController,
+	request: TestRunRequest,
 	context: IstanbulCoverageContext,
 	coverageFolderPath: string
 ): Promise<void> {
@@ -60,10 +67,10 @@ export async function runTestCoverage(
 }
 
 async function runAll(
-	items: vscode.TestItemCollection,
-	run: vscode.TestRun,
+	items: TestItemCollection,
+	run: TestRun,
 	isDebug: boolean = false,
-	cancellationToken?: vscode.CancellationToken
+	cancellationToken?: CancellationToken
 ): Promise<void> {
 	mapTestItems(items, (t) => {
 		run.started(t);
@@ -73,11 +80,11 @@ async function runAll(
 }
 
 async function runNode(
-	node: vscode.TestItem,
-	request: vscode.TestRunRequest,
-	run: vscode.TestRun,
+	node: TestItem,
+	request: TestRunRequest,
+	run: TestRun,
 	isDebug: boolean = false,
-	cancellationToken?: vscode.CancellationToken,
+	cancellationToken?: CancellationToken,
 	runEverything?: boolean
 ): Promise<void> {
 	// Users can hide or filter out tests from their run. If the request says
@@ -92,8 +99,8 @@ async function runNode(
 }
 
 const mapTestItems = <T>(
-	items: vscode.TestItemCollection,
-	mapper: (t: vscode.TestItem) => T
+	items: TestItemCollection,
+	mapper: (t: TestItem) => T
 ): T[] => {
 	const result: T[] = [];
 	items.forEach((t) => result.push(mapper(t)));
