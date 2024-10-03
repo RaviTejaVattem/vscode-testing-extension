@@ -4,7 +4,7 @@ import { IstanbulCoverageContext } from 'istanbul-to-vscode';
 import path from 'path';
 import portfinder from 'portfinder';
 import { Server } from 'socket.io';
-import * as vscode from 'vscode';
+import { ExtensionContext, tests, TestRunProfileKind, workspace } from 'vscode';
 import {
 	addTests,
 	deleteCoverageDir,
@@ -21,11 +21,11 @@ import { runTestCoverage, runTests } from './test-runner';
 export const coverageContext = new IstanbulCoverageContext();
 let availablePorts: number[] = [];
 
-export function activate(context: vscode.ExtensionContext) {
+export function activate(context: ExtensionContext) {
 	// The command has been defined in the package.json file
 	// Now provide the implementation of the command with registerCommand
 	// The commandId parameter must match the command field in package.json
-	const controller = vscode.tests.createTestController(
+	const controller = tests.createTestController(
 		'helloWorldTests',
 		'Hello World Tests'
 	);
@@ -78,19 +78,19 @@ export function activate(context: vscode.ExtensionContext) {
 
 	controller.createRunProfile(
 		'Run',
-		vscode.TestRunProfileKind.Run,
+		TestRunProfileKind.Run,
 		(request, token) => runTests(controller, request, token),
 		true
 	);
 	controller.createRunProfile(
 		'Debug',
-		vscode.TestRunProfileKind.Debug,
+		TestRunProfileKind.Debug,
 		(request, token) => runTests(controller, request, token, true),
 		true
 	);
 	const coverageProfile = controller.createRunProfile(
 		'Coverage',
-		vscode.TestRunProfileKind.Coverage,
+		TestRunProfileKind.Coverage,
 		(request, token) =>
 			runTestCoverage(controller, request, coverageContext, coverageFolderPath),
 		false
@@ -98,7 +98,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	coverageProfile.loadDetailedCoverage = coverageContext.loadDetailedCoverage;
 
-	vscode.workspace.onDidChangeTextDocument(async (e) => {
+	workspace.onDidChangeTextDocument(async (e) => {
 		if (
 			e.document.languageId === 'typescript' &&
 			e.document.fileName.endsWith('.spec.ts')
@@ -116,7 +116,7 @@ export function activate(context: vscode.ExtensionContext) {
 	};
 
 	async function findSpecFiles() {
-		const specFiles = await vscode.workspace.findFiles(
+		const specFiles = await workspace.findFiles(
 			'**/*.spec.ts',
 			'**/node_modules/**'
 		);
