@@ -53,15 +53,13 @@ export function activate(context: ExtensionContext) {
 		);
 		writeToChannel('Karma childprocess id ', childProcess?.pid);
 
-		process.stdin.on('close', () => childProcess?.kill('SIGKILL'));
-
 		const server = new Server(availablePorts[2]);
 		listenToTestResults(server, controller);
-
 		context.subscriptions.push({
 			dispose: () => {
-				childProcess?.kill('SIGKILL');
+				childProcess?.kill('SIGINT');
 				if (server) {
+					server.disconnectSockets(true);
 					server.removeAllListeners();
 					server.close();
 					writeToChannel('Server closed');
