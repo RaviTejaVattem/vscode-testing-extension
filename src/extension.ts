@@ -15,11 +15,15 @@ import {
 } from './helpers';
 import { findKarmaTestsAndSuites } from './parser';
 import { runTestCoverage, runTests } from './test-runner';
+import { ChildProcessWithoutNullStreams, exec } from 'child_process';
 
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export const coverageContext = new IstanbulCoverageContext();
 let availablePorts: number[] = [];
+let childProcess: ChildProcessWithoutNullStreams | undefined;
+let server: Server;
+let coverageFolderPath: string;
 
 export function activate(context: ExtensionContext) {
 	// The command has been defined in the package.json file
@@ -30,7 +34,7 @@ export function activate(context: ExtensionContext) {
 		'Hello World Tests'
 	);
 
-	const coverageFolderPath = path.join(
+	coverageFolderPath = path.join(
 		context.extensionPath,
 		'/dist/coverage/',
 		getRandomString()
@@ -51,21 +55,23 @@ export function activate(context: ExtensionContext) {
 			context.extensionPath + '/dist/karma.conf.js',
 			ports
 		);
+		console.log('<--------> ~ portfinder.getPorts ~ process.pid:', process.pid);
 		writeToChannel('Karma childprocess id ', childProcess?.pid);
+		console.log(
+			'<--------> ~ initialize ~ childProcess.pid:',
+			childProcess?.pid
+		);
 
-		const server = new Server(availablePorts[2]);
+		server = new Server(availablePorts[2]);
 		listenToTestResults(server, controller);
-		context.subscriptions.push({
-			dispose: () => {
-				childProcess?.kill('SIGINT');
-				if (server) {
-					server.disconnectSockets(true);
-					server.removeAllListeners();
-					server.close();
-					writeToChannel('Server closed');
-				}
-				deleteCoverageDir(coverageFolderPath);
-			}
+
+		process.on('exit', () => {
+			deleteCoverageDir(coverageFolderPath);
+			server.disconnectSockets(true);
+			server.close();
+			server.removeAllListeners();
+			childProcess?.kill('SIGINT');
+			exec('kill -9 ' + childProcess?.pid);
 		});
 	}
 	// Use the console to output diagnostic information (writeToChannel) and errors (console.error)
@@ -128,6 +134,8 @@ export function activate(context: ExtensionContext) {
 	}
 }
 
-export function deactivate() {
+export const deactivate = async () => {
+	childProcess?.kill('SIGKILL');
+	exec('kill -9 ' + childProcess?.pid);
 	writeToChannel('Deactivated');
-}
+};
