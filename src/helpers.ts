@@ -94,7 +94,7 @@ export async function addTests(
 export function spawnAProcess(filePath: string, availablePorts: number[]) {
 	ports = availablePorts;
 	statusBarItem.text = `✔️ ${ports[0]}`;
-	statusBarItem.tooltip = `Karma is running on port: ${ports[0]}`;
+	statusBarItem.tooltip = `Karma is using ports: ${ports.join(', ')}`;
 	writeToChannel('<--------> ~ ports:', ports);
 
 	let childProcess;
