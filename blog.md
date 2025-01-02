@@ -67,7 +67,7 @@ The `RunHandler` is the key function which will be executed when user runs a pro
 
 ### Let's now gather our requirements
 
-- [We need to search and list our tests](#we-need-to-search-and-list-our-tests)
+- We need to search and list our tests
 - Find/identify a text runner/executor to run our tests
 - Start the test runner
 - Load our tests into test controller
@@ -122,13 +122,33 @@ export async function findKarmaTestsAndSuites(file: vscode.Uri) {
   - Check for the edge cases where a `describe` can have `describe`s and `it`s, we should nest them accordingly.
   - Look out for commented tests and suites (I am marking them as invalid in my case).
 
+## Adding tests to controller
+
+- We need to add the tests we found to the controller so that they will be shown in the vscode testing tab.
+- The test controller provides `createTestItem` function which accepts a testItem.
+- In my case, I am calling `addTests` for each spec file in the workspace and returning the root as a tree with `describe` as the parent and all the tests nested inside it.
+
+```typescript
+export async function addTests() {
+	// Add each test we found to the controller
+	let root = controller.createTestItem(name, tests.name, file); // id, label, file uri
+	return root;
+}
+
+specFiles.forEach(async (file) => {
+	const tests = await findKarmaTestsAndSuites(file);
+	tests.forEach(async (test) => {
+		const items = await addTests(controller, test, file);
+		controller.items.add(items); // Pass an array of TestItem objects
+	});
+});
+```
+
 ## Find/identify a text runner/executor to run our tests
 
-We just need to run the test server, collect the test results and notify them to vscode (I wish it was that simple)
-
-- I am using karma as test runner here; you can choose one which fits your requirement
-
-We usually run Angular tests through cli `ng test` which picks default config from `<project>/node_modules/@angular-devkit/build-angular/src/webpack/plugins/karma/karma.js`, runs the tests in the project/workspace context, shows the execution log in the terminal and generates coverage using [istanbul.js](https://istanbul.js.org/) based on custom config we defined.
+- We need to run the test server, collect the test results and notify them to vscode.
+- I am using karma as test runner here; you can choose one which fits your requirement.
+- We usually run Angular tests through cli `ng test` which picks default config from `<project>/node_modules/@angular-devkit/build-angular/src/webpack/plugins/karma/karma.js`, runs the tests in the project/workspace context, shows the execution log in the terminal and generates coverage using [istanbul.js](https://istanbul.js.org/) based on custom config we defined.
 
 To achieve the same with an extension
 
@@ -201,6 +221,7 @@ childProcess = spawn('node', processArgs, {
 - The vscode extensions will reside in `/Users/<user>/.vscode/extensions/<extension-name>` when installed. When we run the spawn process, it will check this folder during runtime for the custom Karma config file `karma.conf.js`.
 
 ![compiled-extension](/BlogImages/compiled-extension.png)
+
 - Once the spawn process starts and begins executing the tests, we need to have a way to collect the test execution status and report it back to the vscode testRun to show the user the test status.
 - We may be able to get this info by tracing the execution log of the runner's spawn process, but I felt it was not reliable.
 - So to capture the test execution status, I wrote a [custom karma reporter](https://karma-runner.github.io/6.4/dev/plugins.html)(a good [resource](https://www.is.com/community/blog/how-to-create-a-custom-karma-reporter-3/)) with which I was able to emit the test execution status back to the vscode extension
@@ -216,27 +237,8 @@ this.onSpecComplete = (browsers: any, results: any) => {
 
 ![overview](/BlogImages/karma-with-sockets.png)
 
-## Adding tests to controller
-- We need to add the tests we found to the controller so that they will be shown in the vscode testing tab.
-- The test controller provides createTestItem function which accepts testItem.
-- In my case, I am calling `addTests` for each spec file in the workspace and returning the root as a tree with `describe` as parent and all the tests nested inside it.
-```typescript
-export async function addTests() {
-	// Add each test we found to the controller
-	let root = controller.createTestItem(name, tests.name, file); // id, label, file uri
-	return root;
-}
-
-specFiles.forEach(async (file) => {
-			const tests = await findKarmaTestsAndSuites(file);
-			tests.forEach(async (test) => {
-				const items = await addTests(controller, test, file);
-				controller.items.add(items); // Pass an array of TestItem objects
-			});
-		});
-```
-
 ## Coverage
+
 - We want to enable the json coverage reporting for us to be able to read the coverage details easily.
 - I am writing the coverage json to the extension folder(`/Users/<user>/.vscode/extensions/<extension-name>`) with a random name every time and overriding the same file for each testRun execution and deleting it when we exit vscode.
 - We need to read the generated `coverage-final.json` and pass it to coverageRunProfile's `loadDetailedCoverage` method so that it will be shown in vscode UI.
@@ -272,7 +274,8 @@ coverageProfile.loadDetailedCoverage = context.loadDetailedCoverage; // Shows th
 
 ## Debugging
 
-- Including the debug functionality is easy, thanks to vscode [simple api](https://code.visualstudio.com/docs/editor/debugging#_launchjson-attributes). This is similar to the regular debugConfig we use in launch.json except that we call this conditionally from the code.
+- Including the debug functionality is easy, thanks to vscode's [simple api](https://code.visualstudio.com/docs/editor/debugging#_launchjson-attributes). This is similar to the regular debugConfig we use in `launch.json` except that we call this conditionally from the code.
+
 ```typescript
 const debugConfig = {
 	name: 'Karma Test Explorer Debugging',
@@ -286,21 +289,28 @@ const debugConfig = {
 
 await debug.startDebugging(undefined, debugConfig);
 ```
-- When user clicks on the debug test run profile, we need to start the debug session which runs debug process by attaching chrome to the same `DebugPort` we passed to karma through the custom configuration.
+
+- When the user clicks on the debug test run profile, we need to start the debug session which runs debug process by attaching chrome to the same `DebugPort` we passed to karma through the custom configuration.
 
 ## Miscellaneous
+
 ### Logger in vscode extension
+
 - While building a custom extension, often times we want to log some info to the output tab of vscode, this can be achieved using the [vscode output channels](https://code.visualstudio.com/api/extension-capabilities/common-capabilities#output-channel)
+
 ```typescript
-let outputChannel: OutputChannel = window.createOutputChannel( // creates a separate output channel with the provided name
+let outputChannel: OutputChannel = window.createOutputChannel(
+	// creates a separate output channel with the provided name
 	'Karma test - extension logs'
 );
 outputChannel.appendLine(message + JSON.stringify(options, null, 2)); // this is how we write/append logs to the channel
 ```
 
 ### Find and update tests on change to spec file
-- Whenever a test file is updated, we want to find the changes to test and update them in our controller accordingly
+
+- Whenever a test file is updated, we want to find the changes to test and update them in our controller accordingly.
 - Vscode provides `onDidChangeTextDocument` even which triggers whenever a file changes in workspace, we can listen to this and update the tests accordingly.
+
 ```typescript
 workspace.onDidChangeTextDocument(async (e) => {
 	if (
