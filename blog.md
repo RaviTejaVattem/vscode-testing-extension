@@ -1,27 +1,13 @@
 # Angular and Karma Test Extension for VS Code
 
-This Visual Studio Code extension allows you to view, run, debug, and check coverage for your Angular tests. It leverages the new VS Code testing API and is inspired by the Karma Test Explorer.
+This Visual Studio Code extension allows you to view, run, debug, and check coverage for your Angular tests. It leverages the new [vscode testing API](https://code.visualstudio.com/api/extension-guides/testing) and is inspired by the [Karma Test Explorer](https://github.com/Raagh/angular-karma_test-explorer).
 
-### List of items
-
-- History
-- Expectations from any testing extension we want to build
-- About the vscode testing API
-- How this extension is built
+With this blog I will try to explain about the vscode testing api and how I built this extension so that you can take these learnings to build your own testing extension.
 
 ## History
 
-- Initially, test extensions were expected to run, debug, and check coverage. The Test Explorer UI extension provided these features until the VS Code team natively supported them with the testing API and corresponding UI in version 1.59.
-- Now, the VS Code team has added APIs and the UI for most of these features from the Test Explorer UI extension and added several new features, making it easier for developers to create custom test extensions.
-
-## Expectations from any testing extension we want to build
-
-From any testing extension we build, we have a few basic test requirements/functions:
-
-- A proper UI to see the tests in a project
-- Option to run a test and check its pass or fail status
-- Ability to debug tests
-- To check the coverage of the tests executed
+- The earlier versions of the test extensions were based on [the test explorer](https://github.com/hbenl/vscode-test-explorer) api. The language specific extensions were built on top of this UI and its adapters. The explorer UI used to provide required apis and UI and the adapters have the required logic facilitate the communication between the test framework and the explorer.
+- The VS Code team now natively supports most of these features starting from version 1.59 and this is now the recommended way to build any test extensions.
 
 ## About the VS Code testing API
 
@@ -38,7 +24,7 @@ const controller = tests.createTestController(
 );
 ```
 
-- TestRunProfile: It represents a test run. It can be started, stopped, and debugged. We interact with tests with these profiles.
+- TestRunProfile: It represents a test run. It can be started, stopped, and debugged. We interact with tests using these profiles.
 
 ```typescript
 controller.createRunProfile(
@@ -49,7 +35,7 @@ controller.createRunProfile(
 );
 ```
 
-The `RunHandler` is the key function which will be executed when user runs a profile. the `request` is of `TestRunRequest` type and it contains information about which tests should be run, which should not be run, and how they are run. `token` is the `CancellationToken` which can be used to cancel the test execution.
+The `RunHandler` is the key function which will be executed when user runs a profile. the `request` is of `TestRunRequest` type and it contains information about which tests should be run, which shouldn't be run, and how they are run. `token` is the `CancellationToken` which can be used to cancel the test execution.
 
 - TestItem: It represents a test in the test tree. It can have children and can be run or debugged.
   As described in the [documentation](https://code.visualstudio.com/api/extension-guides/testing#discovering-tests), these are the foundation of test API
@@ -116,6 +102,15 @@ export async function findKarmaTestsAndSuites(file: vscode.Uri) {
 ```
 
 ![model-viz](./BlogImages/model-viz.png)
+
+```typescript
+testItem.range = new Range(  // The location details should be linked to testItem's range which shows the play icons in spec file
+	nodeDetails.location.start.line,
+	nodeDetails.location.start.column,
+	nodeDetails.location.end.line,
+	nodeDetails.location.end.column
+);
+```
 
 - Things to note
   - Make sure that `it` is children of `describe` such that the children are nested inside parent in the tree shown above.
@@ -223,8 +218,8 @@ childProcess = spawn('node', processArgs, {
 ![compiled-extension](/BlogImages/compiled-extension.png)
 
 - Once the spawn process starts and begins executing the tests, we need to have a way to collect the test execution status and report it back to the vscode testRun to show the user the test status.
-- We may be able to get this info by tracing the execution log of the runner's spawn process, but I felt it was not reliable.
-- So to capture the test execution status, I wrote a [custom karma reporter](https://karma-runner.github.io/6.4/dev/plugins.html)(a good [resource](https://www.is.com/community/blog/how-to-create-a-custom-karma-reporter-3/)) with which I was able to emit the test execution status back to the vscode extension
+- We may be able to get this info by tracing the execution log of the runner's spawn process, but I felt it was cumbersome.
+- So to capture the test execution status, I wrote a [custom karma reporter](https://karma-runner.github.io/6.4/dev/plugins.html)(a good [resource](https://www.is.com/community/blog/how-to-create-a-custom-karma-reporter-3/)) with which I was able to emit the test execution status back to the vscode extension. I am using [socket.io](https://socket.io/) to do this communication.
 
 ```typescript
 // Custom karma reporter
