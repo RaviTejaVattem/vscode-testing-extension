@@ -2,12 +2,12 @@
 
 This Visual Studio Code extension allows you to view, run, debug, and check coverage for your Angular tests. It leverages the new [vscode testing API](https://code.visualstudio.com/api/extension-guides/testing) and is inspired by the [Karma Test Explorer](https://github.com/Raagh/angular-karma_test-explorer).
 
-With this blog I will try to explain about the vscode testing api and how I built this extension so that you can take these learnings to build your own testing extension.
+In this blog, I will explain the vscode testing API and how I built this extension so that you can use these learnings to build your own testing extension.
 
 ## History
 
-- The earlier versions of the test extensions were based on [the test explorer](https://github.com/hbenl/vscode-test-explorer) api. The language specific extensions were built on top of this UI and its adapters. The explorer UI used to provide required apis and UI and the adapters have the required logic facilitate the communication between the test framework and the explorer.
-- The VS Code team now natively supports most of these features starting from version 1.59 and this is now the recommended way to build any test extensions.
+- Earlier versions of test extensions were based on the [test explorer](https://github.com/hbenl/vscode-test-explorer) API. Language-specific extensions were built on top of this UI and its adapters. The explorer UI provided the required APIs and UI, while the adapters facilitated communication between the test framework and the explorer.
+- The vscode team now natively supports most of these features starting from version 1.59, and this is now the recommended way to build any test extensions.
 
 ## About the VS Code testing API
 
@@ -15,7 +15,7 @@ The VS Code testing API has a few basic concepts:
 
 ![visualization](./BlogImages/test-api-representation.png)
 
-- TestController: It is the main entry point for the testing API. It is responsible for creating test items and updating the test tree.
+- **TestController**: It is the main entry point for the testing API. It is responsible for creating test items and updating the test tree.
 
 ```typescript
 const controller = tests.createTestController(
@@ -24,7 +24,7 @@ const controller = tests.createTestController(
 );
 ```
 
-- TestRunProfile: It represents a test run. It can be started, stopped, and debugged. We interact with tests using these profiles.
+- **TestRunProfile**: It represents a test run. It can be started, stopped, and debugged. We interact with tests using these profiles.
 
 ```typescript
 controller.createRunProfile(
@@ -35,10 +35,9 @@ controller.createRunProfile(
 );
 ```
 
-The `RunHandler` is the key function which will be executed when user runs a profile. the `request` is of `TestRunRequest` type and it contains information about which tests should be run, which shouldn't be run, and how they are run. `token` is the `CancellationToken` which can be used to cancel the test execution.
+The `RunHandler` is the key function that will be executed when the user runs a profile. The `request` is of `TestRunRequest` type and contains information about which tests should be run, which shouldn't be run, and how they are run. `token` is the `CancellationToken` which can be used to cancel the test execution.
 
-- TestItem: It represents a test in the test tree. It can have children and can be run or debugged.
-  As described in the [documentation](https://code.visualstudio.com/api/extension-guides/testing#discovering-tests), these are the foundation of test API
+- **TestItem**: It represents a test in the test tree. It can have children and can be run or debugged. As described in the [documentation](https://code.visualstudio.com/api/extension-guides/testing#discovering-tests), these are the foundation of the test API
 
 ```Typescript
     interface TestItem {
@@ -54,15 +53,15 @@ The `RunHandler` is the key function which will be executed when user runs a pro
 ### Let's now gather our requirements
 
 - We need to search and list our tests
-- Find/identify a text runner/executor to run our tests
+- Find/identify a test runner/executor to run our tests
 - Start the test runner
 - Load our tests into test controller
-- Make sure the runner is up and user should be able to Run/Debug/Coverage run the tests
-- Collect the text results and update it back to the test run to visually show the status to the user
+- Ensure the runner is up and user can Run/Debug/Coverage run the tests
+- Collect the test results and update them back to the test run to visually show the status to the user
 
 ![flow-chart](./BlogImages/flow-chart.png)
 
-## We need to search and list our tests
+## Searching and listing our tests
 
 - Tests are written differently in different languages, so vscode doesn't provide any API to find the tests in the files.
 
@@ -113,8 +112,8 @@ testItem.range = new Range(  // The location details should be linked to testIte
 ```
 
 - Things to note
-  - Make sure that `it` is children of `describe` such that the children are nested inside parent in the tree shown above.
-  - Check for the edge cases where a `describe` can have `describe`s and `it`s, we should nest them accordingly.
+  - Ensure that `it` is child of `describe` such that the children are nested inside parent in the tree shown above.
+  - Check for edge cases where a `describe` can have `describe`s and `it`s, we should nest them accordingly.
   - Look out for commented tests and suites (I am marking them as invalid in my case).
 
 ## Adding tests to controller
@@ -139,11 +138,11 @@ specFiles.forEach(async (file) => {
 });
 ```
 
-## Find/identify a text runner/executor to run our tests
+## Find/identify a test runner/executor to run our tests
 
 - We need to run the test server, collect the test results and notify them to vscode.
-- I am using karma as test runner here; you can choose one which fits your requirement.
-- We usually run Angular tests through cli `ng test` which picks default config from `<project>/node_modules/@angular-devkit/build-angular/src/webpack/plugins/karma/karma.js`, runs the tests in the project/workspace context, shows the execution log in the terminal and generates coverage using [istanbul.js](https://istanbul.js.org/) based on custom config we defined.
+- I am using karma as test runner here; you can choose one that fits your requirement.
+- We usually run Angular tests through cli `ng test` which picks the default config from `<project>/node_modules/@angular-devkit/build-angular/src/webpack/plugins/karma/karma.js`, runs the tests in the project/workspace context, shows the execution log in the terminal and generates coverage using [istanbul.js](https://istanbul.js.org/) based on custom config we defined.
 
 To achieve the same with an extension
 
@@ -192,7 +191,7 @@ export class KarmaConfigLoader {
 let processArgs = [
 	`${workspacePath}/node_modules/@angular/cli/bin/ng`,
 	'test',
-	`--karma-config=${CUSTOM_KARMA_CONFIG_FILE_PATH}`, // This will be part of extension code, but will be build separately to be able to pick during run time
+	`--karma-config=${CUSTOM_KARMA_CONFIG_FILE_PATH}`, // This will be part of the extension code, but will be built separately to be able to pick during runtime
 	'--code-coverage',
 	'--progress=false'
 ];
@@ -208,7 +207,7 @@ const processEnv = {
 childProcess = spawn('node', processArgs, {
 	env: processEnv,
 	shell: false,
-	cwd: workspacePath // execute the ng test in the context of current folder
+	cwd: workspacePath // execute the ng test in the context of the current folder
 });
 ```
 
@@ -219,7 +218,7 @@ childProcess = spawn('node', processArgs, {
 
 - Once the spawn process starts and begins executing the tests, we need to have a way to collect the test execution status and report it back to the vscode testRun to show the user the test status.
 - We may be able to get this info by tracing the execution log of the runner's spawn process, but I felt it was cumbersome.
-- So to capture the test execution status, I wrote a [custom karma reporter](https://karma-runner.github.io/6.4/dev/plugins.html)(a good [resource](https://www.is.com/community/blog/how-to-create-a-custom-karma-reporter-3/)) with which I was able to emit the test execution status back to the vscode extension. I am using [socket.io](https://socket.io/) to do this communication.
+- To capture the test execution status, I wrote a [custom karma reporter](https://karma-runner.github.io/6.4/dev/plugins.html)(a good [resource](https://www.is.com/community/blog/how-to-create-a-custom-karma-reporter-3/)) with which I was able to emit the test execution status back to the vscode extension. I am using [socket.io](https://socket.io/) to do this communication.
 
 ```typescript
 // Custom karma reporter
@@ -236,7 +235,7 @@ this.onSpecComplete = (browsers: any, results: any) => {
 
 - We want to enable the json coverage reporting for us to be able to read the coverage details easily.
 - I am writing the coverage json to the extension folder(`/Users/<user>/.vscode/extensions/<extension-name>`) with a random name every time and overriding the same file for each testRun execution and deleting it when we exit vscode.
-- We need to read the generated `coverage-final.json` and pass it to coverageRunProfile's `loadDetailedCoverage` method so that it will be shown in vscode UI.
+- We need to read the generated `coverage-final.json` and pass it to the coverageRunProfile's `loadDetailedCoverage` method so that it will be shown in vscode UI.
 - As we are using the widely adopted `istanbul` to generate the coverage, vscode team already wrote a [context api](https://github.com/connor4312/istanbul-to-vscode) which translates the istanbul coverage to vscode understandable format.
 
 ```typescript
@@ -251,7 +250,7 @@ if (fs.existsSync(filePath)) {
 }
 ```
 
-- The coverageRunProfile should be linked accordingly to show the coverage in vscode ui
+- The coverageRunProfile should be linked accordingly to show the coverage in the vscode ui
 
 ```typescript
 const coverageProfile = controller.createRunProfile(
@@ -265,7 +264,7 @@ const coverageProfile = controller.createRunProfile(
 coverageProfile.loadDetailedCoverage = context.loadDetailedCoverage; // Shows the coverage in vscode UI
 ```
 
-- As of now I am running the coverage for both `runProfile` and `debugProfile` and loading it to vscode when we run the `coverageProfile`. Ideally the coverage profile should be running the tests with coverage and load the coverage.
+- As of now, I am running the coverage for both `runProfile` and `debugProfile` and loading it to vscode when we run the `coverageProfile`. Ideally, the coverage profile should be running the tests with coverage and loading the coverage.
 
 ## Debugging
 
@@ -285,7 +284,7 @@ const debugConfig = {
 await debug.startDebugging(undefined, debugConfig);
 ```
 
-- When the user clicks on the debug test run profile, we need to start the debug session which runs debug process by attaching chrome to the same `DebugPort` we passed to karma through the custom configuration.
+- When the user clicks on the debug test run profile, we need to start the debug session which runs the debug process by attaching chrome to the same `DebugPort` we passed to karma through the custom configuration.
 
 ## Miscellaneous
 
@@ -303,8 +302,8 @@ outputChannel.appendLine(message + JSON.stringify(options, null, 2)); // this is
 
 ### Find and update tests on change to spec file
 
-- Whenever a test file is updated, we want to find the changes to test and update them in our controller accordingly.
-- Vscode provides `onDidChangeTextDocument` even which triggers whenever a file changes in workspace, we can listen to this and update the tests accordingly.
+- Whenever a test file is updated, we want to find the changes to the test and update them in our controller accordingly.
+- Vscode provides the`onDidChangeTextDocument` event which triggers whenever a file changes in the workspace, we can listen to this and update the tests accordingly.
 
 ```typescript
 workspace.onDidChangeTextDocument(async (e) => {
