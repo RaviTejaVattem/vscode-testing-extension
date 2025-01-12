@@ -2,7 +2,7 @@
 
 This Visual Studio Code extension allows you to view, run, debug, and check coverage for your Angular tests. It leverages the new [vscode testing API](https://code.visualstudio.com/api/extension-guides/testing) and is inspired by the [Karma Test Explorer](https://github.com/Raagh/angular-karma_test-explorer).
 
-In this blog, I will explain the vscode testing API and how I built this extension so that you can use these learnings to build your own testing extension.
+In this blog, I will explain the vscode testing API and an overview of how I built this extension so that you can use these learnings to build your own testing extension.
 
 ## History
 
@@ -39,25 +39,25 @@ The `RunHandler` is the key function that will be executed when the user runs a 
 
 - **TestItem**: It represents a test in the test tree. It can have children and can be run or debugged. As described in the [documentation](https://code.visualstudio.com/api/extension-guides/testing#discovering-tests), these are the foundation of the test API
 
-```Typescript
-    interface TestItem {
-        readonly id: string; // unique id
-        readonly uri: Uri | undefined; // path(a file or a directory)
-        readonly children: TestItemCollection; // children of the test item(can be nested)
-        readonly parent: TestItem | undefined; // parent of the test item(will be undefined for top level items)
-        range: Range | undefined; //Location of the test item in its Uri,
-        ...
-    }
+```typescript
+interface TestItem {
+    readonly id: string; // unique id
+    readonly uri: Uri | undefined; // path (a file or a directory)
+    readonly children: TestItemCollection; // children of the test item (can be nested)
+    readonly parent: TestItem | undefined; // parent of the test item (will be undefined for top-level items)
+    range: Range | undefined; // Location of the test item in its Uri,
+    ...
+}
 ```
 
 ### Let's now gather our requirements
 
 - We need to search and list our tests
+- Load our tests into test controller
 - Find/identify a test runner/executor to run our tests
 - Start the test runner
-- Load our tests into test controller
-- Ensure the runner is up and user can Run/Debug/Coverage run the tests
 - Collect the test results and update them back to the test run to visually show the status to the user
+- Coverage and debug runs
 
 ![flow-chart](./BlogImages/flow-chart.png)
 
@@ -85,25 +85,24 @@ export async function findKarmaTestsAndSuites(file: vscode.Uri) {
 
 	const getNode = (node: ts.Node): IParsedNode | undefined => {
 		// Recursively find the describes and its in the file
-				return {
-					fn: expression.text, // describe or it
-					name: testName, // name of the test suite or the test
-					location: {
-						source: file.fsPath, // file URI
-						start, // start line x column of a test suite or the test
-						end // end line x column of a test suite or the test
-					},
-					children: [] // nested node of tests and suites
-				};
-			}
-		}
+		return {
+			fn: expression.text, // describe or it
+			name: testName, // name of the test suite or the test
+			location: {
+				source: file.fsPath, // file URI
+				start, // start line x column of a test suite or the test
+				end // end line x column of a test suite or the test
+			},
+			children: [] // nested node of tests and suites
+		};
 	};
+}
 ```
 
 ![model-viz](./BlogImages/model-viz.png)
 
 ```typescript
-testItem.range = new Range(  // The location details should be linked to testItem's range which shows the play icons in spec file
+testItem.range = new Range( // The location details should be linked to testItem's range which shows the play icons in spec file
 	nodeDetails.location.start.line,
 	nodeDetails.location.start.column,
 	nodeDetails.location.end.line,
@@ -111,7 +110,7 @@ testItem.range = new Range(  // The location details should be linked to testIte
 );
 ```
 
-- Things to note
+- Things to note:
   - Ensure that `it` is child of `describe` such that the children are nested inside parent in the tree shown above.
   - Check for edge cases where a `describe` can have `describe`s and `it`s, we should nest them accordingly.
   - Look out for commented tests and suites (I am marking them as invalid in my case).
@@ -119,7 +118,7 @@ testItem.range = new Range(  // The location details should be linked to testIte
 ## Adding tests to controller
 
 - We need to add the tests we found to the controller so that they will be shown in the vscode testing tab.
-- The test controller provides `createTestItem` function which accepts a testItem.
+- The test controller provides the `createTestItem` function which accepts a testItem.
 - In my case, I am calling `addTests` for each spec file in the workspace and returning the root as a tree with `describe` as the parent and all the tests nested inside it.
 
 ```typescript
@@ -138,11 +137,11 @@ specFiles.forEach(async (file) => {
 });
 ```
 
-## Find/identify a test runner/executor to run our tests
+## Find a test runner to run our tests
 
 - We need to run the test server, collect the test results and notify them to vscode.
 - I am using karma as test runner here; you can choose one that fits your requirement.
-- We usually run Angular tests through cli `ng test` which picks the default config from `<project>/node_modules/@angular-devkit/build-angular/src/webpack/plugins/karma/karma.js`, runs the tests in the project/workspace context, shows the execution log in the terminal and generates coverage using [istanbul.js](https://istanbul.js.org/) based on custom config we defined.
+- We usually run Angular tests through the cli `ng test` which picks the default config from `<project>/node_modules/@angular-devkit/build-angular/src/webpack/plugins/karma/karma.js`, runs the tests in the project/workspace context, shows the execution log in the terminal and generates coverage using [istanbul.js](https://istanbul.js.org/) based on custom config we defined.
 
 To achieve the same with an extension
 
@@ -185,7 +184,7 @@ export class KarmaConfigLoader {
 }
 ```
 
-- Run ng test using a node process
+- Run `ng test` using a node process
 
 ```typescript
 let processArgs = [
@@ -216,6 +215,8 @@ childProcess = spawn('node', processArgs, {
 
 ![compiled-extension](/BlogImages/compiled-extension.png)
 
+## Collect the test results and load them to the test run
+
 - Once the spawn process starts and begins executing the tests, we need to have a way to collect the test execution status and report it back to the vscode testRun to show the user the test status.
 - We may be able to get this info by tracing the execution log of the runner's spawn process, but I felt it was cumbersome.
 - To capture the test execution status, I wrote a [custom karma reporter](https://karma-runner.github.io/6.4/dev/plugins.html)(a good [resource](https://www.is.com/community/blog/how-to-create-a-custom-karma-reporter-3/)) with which I was able to emit the test execution status back to the vscode extension. I am using [socket.io](https://socket.io/) to do this communication.
@@ -227,6 +228,20 @@ this.onSpecComplete = (browsers: any, results: any) => {
 		worker.postMessage({ key: KarmaEventName.SpecComplete, results }); // posts the execution results to the socket server
 	}
 };
+```
+
+```typescript
+// Listen to results from the extension's socket server
+socket.on(KarmaEventName.SpecComplete, (result: any) => {
+	...
+	if (result.skipped) {
+		run.skipped(testItem); // Test will be marked as skipped
+	} else if (result.success) {
+		run.passed(testItem); // Test will be marked as passed with green check
+	} else {
+		run.failed(testItem, { message: result.log.join('') });  // Test will be marked as failed and the message here will be shown shown in the spec file
+	}
+});
 ```
 
 ![overview](/BlogImages/karma-with-sockets.png)
@@ -319,3 +334,9 @@ workspace.onDidChangeTextDocument(async (e) => {
 	}
 });
 ```
+
+That's all for now, folks! I hope I was able to explain the essentials of building a test extension using the VS Code Testing API.
+
+This is my first blog post. If you enjoyed the content, please give the GitHub repository a star and share your feedback so I can improve future articles.
+
+Thank you for reading, and have a great day!
