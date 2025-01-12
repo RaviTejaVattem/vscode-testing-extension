@@ -4,7 +4,7 @@ This is an extension for vscode to view, run, debug and check coverage for the a
 Based on new [vscode testing api](https://code.visualstudio.com/api/extension-guides/testing) and inspired by [karma test explorer](https://github.com/lucono/karma-test-explorer).
 
 
-## How to install this extension:
+## How to install this extension using VSIX:
 
 - Clone this repository.
 - Make sure you have the minimum required node v18.
