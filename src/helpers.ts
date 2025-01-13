@@ -1,4 +1,4 @@
-import { spawn } from 'child_process';
+import { execSync, spawn } from 'child_process';
 import fs from 'fs';
 import * as http from 'http';
 import { Server } from 'socket.io';
@@ -18,6 +18,7 @@ import {
 import { ApplicationConstants, KarmaEventName } from './constants';
 import { IParsedNode } from './types';
 
+const nodePath = execSync('which node').toString().trim();
 const statusBarItem = window.createStatusBarItem();
 const testItems = new Map<string, TestItem>();
 
@@ -96,6 +97,7 @@ export function spawnAProcess(filePath: string, availablePorts: number[]) {
 	statusBarItem.text = `✔️ ${ports[0]}`;
 	statusBarItem.tooltip = `Karma is using ports: ${ports.join(', ')}`;
 	writeToChannel('<--------> ~ ports:', ports);
+	writeToChannel('<--------> ~ nodePath:', nodePath);
 
 	let childProcess;
 	let wsFolders = workspace?.workspaceFolders;
@@ -120,13 +122,19 @@ export function spawnAProcess(filePath: string, availablePorts: number[]) {
 			[ApplicationConstants.KarmaCoverageDir]: getRandomString()
 		};
 
-		childProcess = spawn('node', processArgs, {
+		writeToChannel('<--------> ~ processArgs:', processArgs);
+		writeToChannel('<--------> ~ processEnv:', processEnv);
+
+		childProcess = spawn(nodePath, processArgs, {
 			env: processEnv,
 			shell: false,
 			cwd: workspacePath
 		});
 		childProcess.stdout.on('data', (data) => {
 			writeToChannel('Main server - stdout: ', data.toString());
+		});
+		childProcess.stderr.on('error', (data) => {
+			writeToChannel('Main server - error: ', data.toString());
 		});
 		childProcess.stderr.on('data', (data) => {
 			writeToChannel('Main server - stderr: ', data.toString());
