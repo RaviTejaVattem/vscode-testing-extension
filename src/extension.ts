@@ -77,7 +77,7 @@ export function activate(context: ExtensionContext) {
 	// Use the console to output diagnostic information (writeToChannel) and errors (console.error)
 	// This line of code will only be executed once when your extension is activated
 	writeToChannel(
-		'Congratulations, your extension "coverage-gutters" is now active!'
+		'Congratulations, your extension "angular-testing" is now active!'
 	);
 
 	controller.createRunProfile(
