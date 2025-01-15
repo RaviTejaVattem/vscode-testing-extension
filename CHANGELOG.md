@@ -11,3 +11,7 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 ## [0.0.2]
 
 - Fixed issues with node path
+
+## [0.0.3]
+
+- Updated readme with blog info
