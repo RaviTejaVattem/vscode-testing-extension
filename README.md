@@ -1,3 +1,5 @@
+# **[Detailed Blog Post on the Functionality of This Extension](https://dev.to/ravitejavattem/custom-angular-and-karma-test-extension-for-vs-code-3b3b)**
+
 # Angular Karma test extension for vscode
 This is an extension for vscode to view, run, debug and check coverage for the angular tests
 
