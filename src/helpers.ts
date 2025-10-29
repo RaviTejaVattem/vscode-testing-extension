@@ -19,7 +19,7 @@ import { ApplicationConstants, KarmaEventName } from './constants';
 import { IParsedNode } from './types';
 
 const nodePath = execSync('which node').toString().trim();
-const statusBarItem = window.createStatusBarItem();
+export const statusBarItem = window.createStatusBarItem();
 const testItems = new Map<string, TestItem>();
 
 let ports: number[];

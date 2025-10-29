@@ -19,7 +19,22 @@
     "workspaceContains:**/angular.json"
   ],
   "main": "./dist/extension.js",
-  "contributes": {},
+  "contributes": {
+    "commands": [
+      {
+        "command": "karma.startServer",
+        "title": "Karma: Start Server"
+      },
+      {
+        "command": "karma.stopServer",
+        "title": "Karma: Stop Server"
+      },
+      {
+        "command": "karma.restartServer",
+        "title": "Karma: Restart Server"
+      }
+    ]
+  },
   "scripts": {
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
