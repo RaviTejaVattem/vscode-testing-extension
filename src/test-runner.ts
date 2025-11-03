@@ -10,6 +10,7 @@ import {
 import { IstanbulCoverageContext } from 'istanbul-to-vscode';
 import path from 'path';
 import { testExecution, writeToChannel } from './helpers';
+import { ensureServerRunning } from './extension';
 
 const loopAndRunTests = async (
 	run: TestRun,
@@ -42,9 +43,12 @@ export async function runTests(
 	cancellationToken: CancellationToken,
 	isDebug: boolean = false
 ): Promise<void> {
-	const run = controller.createTestRun(request);
-	await loopAndRunTests(run, controller, request, cancellationToken, isDebug);
-	run.end();
+	// Ensure server is running before executing tests
+	ensureServerRunning(async () => {
+		const run = controller.createTestRun(request);
+		await loopAndRunTests(run, controller, request, cancellationToken, isDebug);
+		run.end();
+	});
 }
 
 export async function runTestCoverage(
@@ -53,17 +57,20 @@ export async function runTestCoverage(
 	context: IstanbulCoverageContext,
 	coverageFolderPath: string
 ): Promise<void> {
-	const run = controller.createTestRun(request);
-	if (context) {
-		const filePath = path.join(coverageFolderPath, 'coverage-final.json');
+	// Ensure server is running before checking coverage
+	ensureServerRunning(async () => {
+		const run = controller.createTestRun(request);
+		if (context) {
+			const filePath = path.join(coverageFolderPath, 'coverage-final.json');
 
-		if (fs.existsSync(filePath)) {
-			await context.apply(run, coverageFolderPath);
-		} else {
-			writeToChannel('No coverage found, re-run the tests');
+			if (fs.existsSync(filePath)) {
+				await context.apply(run, coverageFolderPath);
+			} else {
+				writeToChannel('No coverage found, re-run the tests');
+			}
 		}
-	}
-	run.end();
+		run.end();
+	});
 }
 
 async function runAll(

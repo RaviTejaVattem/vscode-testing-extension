@@ -19,7 +19,7 @@ import { ApplicationConstants, KarmaEventName } from './constants';
 import { IParsedNode } from './types';
 
 const nodePath = execSync('which node').toString().trim();
-const statusBarItem = window.createStatusBarItem();
+export const statusBarItem = window.createStatusBarItem();
 const testItems = new Map<string, TestItem>();
 
 let ports: number[];
@@ -92,10 +92,9 @@ export async function addTests(
 	return root;
 }
 
-export function spawnAProcess(filePath: string, availablePorts: number[]) {
+export function spawnAProcess(filePath: string, availablePorts: number[], onBrowserReady?: () => void) {
 	ports = availablePorts;
-	statusBarItem.text = `✔️ ${ports[0]}`;
-	statusBarItem.tooltip = `Karma is using ports: ${ports.join(', ')}`;
+	// Don't update status bar here - it will be updated when connection is established
 	writeToChannel('<--------> ~ ports:', ports);
 	writeToChannel('<--------> ~ nodePath:', nodePath);
 
@@ -130,8 +129,19 @@ export function spawnAProcess(filePath: string, availablePorts: number[]) {
 			shell: false,
 			cwd: workspacePath
 		});
+		
+		let browserReadyCalled = false;
+		
 		childProcess.stdout.on('data', (data) => {
-			writeToChannel('Main server - stdout: ', data.toString());
+			const output = data.toString();
+			writeToChannel('Main server - stdout: ', output);
+			
+			// Detect when Chrome/browser is connected and ready
+			if (!browserReadyCalled && output.includes('Connected on socket') && onBrowserReady) {
+				browserReadyCalled = true;
+				writeToChannel('🌐 Browser detected as connected from stdout');
+				onBrowserReady();
+			}
 		});
 		childProcess.stderr.on('error', (data) => {
 			writeToChannel('Main server - error: ', data.toString());
@@ -202,8 +212,9 @@ export function listenToTestResults(
 	let run: TestRun;
 
 	server.on(KarmaEventName.Connect, (socket) => {
-		writeToChannel('Connected to server');
+		writeToChannel('🔌 Socket.IO client connected to server');
 		statusBarItem.show();
+		
 		socket.on(KarmaEventName.RunStart, () => {
 			writeToChannel('On run start');
 			run = controller.createTestRun(

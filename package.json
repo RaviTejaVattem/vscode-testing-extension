@@ -19,7 +19,32 @@
     "workspaceContains:**/angular.json"
   ],
   "main": "./dist/extension.js",
-  "contributes": {},
+  "contributes": {
+    "commands": [
+      {
+        "command": "karma.startServer",
+        "title": "Karma: Start Server"
+      },
+      {
+        "command": "karma.stopServer",
+        "title": "Karma: Stop Server"
+      },
+      {
+        "command": "karma.restartServer",
+        "title": "Karma: Restart Server"
+      }
+    ],
+    "configuration": {
+      "title": "Karma Test Explorer",
+      "properties": {
+        "karmaTestExplorer.autoStartServer": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically start the Karma server when VS Code opens. If disabled, you can manually start the server using the command palette or status bar."
+        }
+      }
+    }
+  },
   "scripts": {
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
